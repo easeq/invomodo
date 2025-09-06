@@ -3,6 +3,13 @@ name = "invomodo"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+opt-level = "z"   # or "s" for slightly better speed
+lto = true
+panic = "abort"
+debug = false     # 🚫 No debug info
+codegen-units = 1
+
 [dependencies]
 leptos = { version = "0.8.6", features = ["csr"] }
 leptos_router = { version = "0.8.6", features = ["tracing"] }
@@ -36,6 +43,7 @@ web-sys = { version = "0.3.77", features = [
   "EventListener",
   "Event",
   "Storage",
+  "Screen",
 ] }
 js-sys = "0.3.77"
 
