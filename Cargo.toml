@@ -1,0 +1,96 @@
+[package]
+name = "invomodo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+leptos = { version = "0.8.6", features = ["csr"] }
+leptos_router = { version = "0.8.6", features = ["tracing"] }
+# leptos_icons = "0.7.0"
+icondata = "0.6.0"
+phosphor-leptos = "0.8.0"
+
+# Wasm
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4.50"
+wasm-logger = "0.2.0"
+serde-wasm-bindgen = "0.6.5"
+web-sys = { version = "0.3.77", features = [
+  "Window",
+  "Document",
+  "Element",
+  "HtmlElement",
+  "HtmlInputElement",
+  "FileList",
+  "File",
+  "Blob",
+  "BlobPropertyBag",
+  "FileReader",
+  "Event",
+  "MouseEvent",
+  "Url",
+  "Navigator",
+  "Clipboard",
+  "MediaQueryListEvent",
+  "MediaQueryList",
+  "EventListener",
+  "Event",
+  "Storage",
+] }
+js-sys = "0.3.77"
+
+gloo-timers = { version = "0.3.0", features = ["futures"] }
+gloo-net = "0.6.0"
+
+# Crypto
+aes-gcm = "0.10.3"
+argon2 = "0.5.3"
+base64 = "0.22.1"
+sha2 = "0.10.9"
+getrandom = { version = "0.2", features = ["js"] }
+
+# P2P
+yrs = { version = "0.24.0", features = ["sync"] }
+# ywasm = "0.19.2"
+# webrtc = "0.13.0"
+
+# Locale
+fluent = "0.17.0"
+fluent-bundle = "0.16.0"
+unic-langid = "0.9.6"
+
+# Template
+typst-pdf = "0.13.1"
+typst-svg = "0.13.1"
+typst = "0.13.1"
+typst-assets = { version = "0.13.1", features = ["fonts"] }
+
+# IndexedDB
+gluesql = { version = "0.17.0", default-features = false, features = [
+  "gluesql-idb-storage",
+] }
+gluesql-idb-storage = "0.17.0"
+
+async-trait = "0.1.89"
+thiserror = "2.0.14"
+time = { version = "0.3.41", features = [
+  "local-offset",
+  "serde",
+  "macros",
+  "formatting",
+  "parsing",
+] }
+serde_json = "1.0.142"
+serde = { version = "1.0.219", features = ["derive"] }
+uuid = { version = "1.18.0", features = ["js", "serde", "v4"] }
+# uuid = { version = "1.18.0", features = ["rng-getrandom", "serde", "v4"] }
+# getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+
+console_error_panic_hook = "0.1.7"
+log = "0.4.27"
+
+once_cell = "1.21.3"
+rust_decimal = { version = "1.37.2", features = ["serde-with-str", "macros"] }
+csv = "1.3.1"
+leptos_meta = { version = "0.8.5", features = ["tracing"] }
+wasm-log = "0.3.1"
