@@ -1,6 +1,5 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::console;
 
 // External JavaScript function bindings
 #[wasm_bindgen]

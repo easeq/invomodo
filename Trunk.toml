@@ -1,0 +1,32 @@
+[serve]
+port = 3000
+open = true
+
+[build]
+release = false
+filehash = true
+
+# [[hooks]]
+# stage = "post_build"
+# command = "wasm-opt"
+# command_arguments = [
+#   "-Oz",
+#   "--strip-debug",
+#   "--strip-dwarf",
+#   "--strip-producers",
+#   "--vacuum",
+#   "--converge",
+#   "-o",
+#   "dist/invomodo_opt_bg.wasm",
+#   "dist/invomodo_bg.wasm",
+# ]
+#
+# [[hooks]]
+# stage = "post_build"
+# command = "gzip"
+# command_arguments = ["-k", "-9", "dist/invomodo_opt_bg.wasm"]
+#
+# [[hooks]]
+# stage = "post_build"
+# command = "brotli"
+# command_arguments = ["-q", "11", "dist/invomodo_opt_bg.wasm"]

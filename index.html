@@ -4,10 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Invoice Adjustments Builder</title>
+
+    <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect" />
+    <link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+
     <link data-trunk rel="css" href="style/main.css" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style type="text/tailwindcss">
+        :root { --primary-color: #1173d4; --border-color: #e2e8f0; --text-primary: #1e293b; --text-secondary: #64748b; --background-primary: #f8fafc; --background-secondary: #ffffff; } .form-input { @apply block w-full rounded-md border-0 py-2.5 px-3.5 text-sm
+        leading-6 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[var(--primary-color)]; } .form-label { @apply block text-sm font-medium leading-6 text-gray-900; }
+    </style>
 </head>
-<body>
+<body class="bg-[var(--background-primary)] font-sans text-[var(--text-primary)]">
     <div id="app"></div>
 </body>
 </html>

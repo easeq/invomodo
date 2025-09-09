@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 pub mod app;
 pub mod auth;
 pub mod components;
+pub mod routes;
 pub mod shared;
 
 // Import the `console.log` function from JavaScript

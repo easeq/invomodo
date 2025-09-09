@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary-color: #1173d4;
+    --border-color: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --background-primary: #f8fafc;
+    --background-secondary: #ffffff;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  .form-input {
+    @apply block 
+          w-full 
+          rounded-md 
+          border-0 
+          py-2.5 
+          px-3.5 
+          text-sm 
+          leading-6 
+          text-gray-900 
+          shadow-sm 
+          ring-1 
+          ring-inset 
+          ring-gray-300 
+          placeholder:text-gray-400 
+          focus:ring-2 
+          focus:ring-inset 
+          focus:ring-[var(--primary-color)];
+  }
+
+  .form-label {
+    @apply block 
+          text-sm 
+          font-medium 
+          leading-6 
+          text-gray-900;
+  }
+}

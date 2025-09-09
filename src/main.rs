@@ -1,3 +1,4 @@
+use invomodo::routes::invoice_builder::InvoiceBuilder;
 use leptos::prelude::*;
 use leptos::reactive::spawn_local;
 use leptos_meta::*;
@@ -70,15 +71,15 @@ pub fn App() -> impl IntoView {
     // Initialize Firebase authentication
     Effect::new(move |_| {
         let app_state = app_state.clone();
-        spawn_local(async move {
-            if let Err(e) = initialize_firebase_auth(app_state.clone()).await {
-                log::error!("Firebase auth initialization failed: {e:?}");
-                app_state
-                    .error
-                    .set(Some(format!("Authentication setup failed: {e}")));
-            }
-            app_state.loading.set(false);
-        });
+        // spawn_local(async move {
+        //     if let Err(e) = initialize_firebase_auth(app_state.clone()).await {
+        //         log::error!("Firebase auth initialization failed: {e:?}");
+        //         app_state
+        //             .error
+        //             .set(Some(format!("Authentication setup failed: {e}")));
+        //     }
+        //     app_state.loading.set(false);
+        // });
     });
 
     view! {
@@ -96,7 +97,7 @@ pub fn App() -> impl IntoView {
                         <Route path=path!("/blog") view=BlogPage />
                         <Route path=path!("/docs") view=DocsPage />
                         // <Route path=path!("/") view=HomePage />
-                        <Route path=path!("/") view=BuilderPage />
+                        <Route path=path!("/") view=InvoiceBuilder />
                         // Protected routes wrapped in <Protected>
                         <Route
                             path=path!("/dashboard")
@@ -301,9 +302,9 @@ fn LayoutSelector(
 #[component]
 fn PublicLayout(children: Children) -> impl IntoView {
     view! {
-        <div class="public-layout">
+        <div class="flex-1">
             <PublicHeader />
-            <main class="flex-1">{children()}</main>
+            <main class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">{children()}</main>
             <PublicFooter />
         </div>
     }
@@ -338,8 +339,8 @@ fn PublicHeader() -> impl IntoView {
     };
 
     view! {
-        <header class="bg-white shadow-sm border-b">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-[var(--border-color)] bg-[var(--background-secondary)] px-6 py-4">
+            <div class="flex items-center gap-4">
                 <div class="flex justify-between items-center py-4">
                     <div class="flex items-center">
                         <h1 class="text-xl font-semibold text-gray-900">"SecurePWA"</h1>
@@ -658,42 +659,6 @@ fn HomePage() -> impl IntoView {
                         <p class="text-gray-600">
                             "Built with Rust and Leptos for optimal performance and reactivity."
                         </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-}
-
-#[component]
-fn BuilderPage() -> impl IntoView {
-    view! {
-        <div class="max-w-6xl mx-auto px-4 py-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-6">"Builder"</h1>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-gray-600 mb-4">
-                    "This is the builder interface, available to both authenticated and unauthenticated users."
-                </p>
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                        <p class="text-gray-500">"Drag and drop components here"</p>
-                    </div>
-                    <div class="space-y-4">
-                        <h3 class="font-semibold">"Component Palette"</h3>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button class="p-3 bg-blue-100 rounded hover:bg-blue-200">
-                                "Button"
-                            </button>
-                            <button class="p-3 bg-green-100 rounded hover:bg-green-200">
-                                "Input"
-                            </button>
-                            <button class="p-3 bg-purple-100 rounded hover:bg-purple-200">
-                                "Card"
-                            </button>
-                            <button class="p-3 bg-orange-100 rounded hover:bg-orange-200">
-                                "Modal"
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>

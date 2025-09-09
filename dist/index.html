@@ -4,15 +4,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Invoice Adjustments Builder</title>
-    <link rel="stylesheet" href="/main-786a30f308acc847.css" integrity="sha384-CVuK15T1OgQf0d5+NuVP6iWUBgdG3/Ftw66qq1lXudujTlHhJoUZ5uIcmM3Bmup6"/>
+
+    <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect" />
+    <link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+
+    <link rel="stylesheet" href="/main-65772dcba078d8f3.css" integrity="sha384-upoiJwqkDACg4Z/vvFPZ/3Jb3mpGpVoRYa7jTeq+bKGyDT5cxsqn/VukTCoq+ly7"/>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-<link rel="modulepreload" href="/invomodo-6a8c9413c556dff8.js" crossorigin="anonymous" integrity="sha384-zmVA3XC1RugSg2AsukEu10BHBjfL1BJar7LgWr5qp7/QDTBthC+UsYK3vuJOHfFq"><link rel="preload" href="/invomodo-6a8c9413c556dff8_bg.wasm" crossorigin="anonymous" integrity="sha384-f4QxO/YRk73bbup8czCoYYO8Rt12zMCqViAT+H5JnUOKOkogb/CzocfpVZcdquNi" as="fetch" type="application/wasm"></head>
-<body>
+
+    <style type="text/tailwindcss">
+        :root { --primary-color: #1173d4; --border-color: #e2e8f0; --text-primary: #1e293b; --text-secondary: #64748b; --background-primary: #f8fafc; --background-secondary: #ffffff; } .form-input { @apply block w-full rounded-md border-0 py-2.5 px-3.5 text-sm
+        leading-6 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[var(--primary-color)]; } .form-label { @apply block text-sm font-medium leading-6 text-gray-900; }
+    </style>
+<link rel="modulepreload" href="/invomodo-1ed4a1b193333164.js" crossorigin="anonymous" integrity="sha384-ckdEpdpyAN5fLSxNi5VL5jEvh00G0DQo/Do0r/wIOi1XWwpUk9e8CuMWvn49K2DH"><link rel="preload" href="/invomodo-1ed4a1b193333164_bg.wasm" crossorigin="anonymous" integrity="sha384-H6WlrxtNh1ImF3/9VhXb+HM+CFKWu7+E52IfNRgJmniKmjnoRsjnNznSN4I3mijU" as="fetch" type="application/wasm"></head>
+<body class="bg-[var(--background-primary)] font-sans text-[var(--text-primary)]">
     <div id="app"></div>
 
 <script type="module">
-import init, * as bindings from '/invomodo-6a8c9413c556dff8.js';
-const wasm = await init({ module_or_path: '/invomodo-6a8c9413c556dff8_bg.wasm' });
+import init, * as bindings from '/invomodo-1ed4a1b193333164.js';
+const wasm = await init({ module_or_path: '/invomodo-1ed4a1b193333164_bg.wasm' });
 
 
 window.wasmBindings = bindings;

@@ -14,4 +14,4 @@ pub use input::Input;
 pub use select::Select;
 pub use switch::Switch;
 pub use table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow};
-pub use tabs::{Tabs, TabsContent, TabsList, TabsTrigger};
+pub use tabs::*;
