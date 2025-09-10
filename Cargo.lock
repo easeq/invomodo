@@ -2186,7 +2186,6 @@ dependencies = [
  "log",
  "once_cell",
  "phosphor-leptos",
- "regex",
  "rust_decimal",
  "serde",
  "serde-wasm-bindgen",

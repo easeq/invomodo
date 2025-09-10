@@ -4,21 +4,40 @@ use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
 };
 
-// 1. Define your data structure for Tax
+// 1. Define enum for tax type
+#[derive(Clone, PartialEq, Debug, Default)]
+pub enum TaxType {
+    #[default]
+    Percentage,
+    FixedAmount,
+}
+
+impl std::fmt::Display for TaxType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaxType::FixedAmount => write!(f, "Fixed Amount"),
+            TaxType::Percentage => write!(f, "Percentage"),
+        }
+    }
+}
+
+// 2. Define your data structure for Tax
 #[derive(Clone, PartialEq, Debug)]
 pub struct TaxItem {
     pub id: String,
     pub name: String,
+    pub tax_type: TaxType,
     pub rate: f64,
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct TaxForm {
     pub name: String,
+    pub tax_type: TaxType,
     pub rate: String, // Keep as string for form input handling
 }
 
-// 2. Implement required traits
+// 3. Implement required traits
 impl FormData for TaxItem {
     type FormProps = TaxForm;
 
@@ -26,6 +45,7 @@ impl FormData for TaxItem {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::new(),
+            tax_type: TaxType::default(),
             rate: 0.0,
         }
     }
@@ -33,6 +53,7 @@ impl FormData for TaxItem {
     fn to_form_props(&self) -> Self::FormProps {
         TaxForm {
             name: self.name.clone(),
+            tax_type: self.tax_type.clone(),
             rate: self.rate.to_string(),
         }
     }
@@ -41,6 +62,7 @@ impl FormData for TaxItem {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name: props.name.clone(),
+            tax_type: props.tax_type.clone(),
             rate: props.rate.parse::<f64>().unwrap_or(0.0),
         }
     }
@@ -56,13 +78,16 @@ impl ItemData for TaxItem {
     }
 
     fn get_subtitle(&self) -> Option<String> {
-        Some(format!("{}%", self.rate))
+        Some(match self.tax_type {
+            TaxType::FixedAmount => format!("${:.2}", self.rate),
+            TaxType::Percentage => format!("{}%", self.rate),
+        })
     }
 
     fn get_metadata(&self) -> Vec<(String, String)> {
         vec![
+            ("tax_type".to_string(), self.tax_type.to_string()),
             ("rate".to_string(), self.rate.to_string()),
-            ("id".to_string(), self.id.clone()),
         ]
     }
 }
@@ -76,7 +101,7 @@ impl FormValidation for TaxForm {
             validators::required(&self.rate, "Rate"),
         ];
 
-        // Validate rate is a valid number
+        // Validate rate is a valid number and within appropriate range
         if !self.rate.is_empty() {
             if self.rate.parse::<f64>().is_err() {
                 results.push(ValidationResult::new().with_field_error(
@@ -89,32 +114,39 @@ impl FormValidation for TaxForm {
                         "rate".to_string(),
                         "Rate cannot be negative".to_string(),
                     ));
-                } else if rate > 100.0 {
+                } else if matches!(self.tax_type, TaxType::Percentage) && rate > 100.0 {
                     results.push(ValidationResult::new().with_field_error(
                         "rate".to_string(),
-                        "Rate cannot exceed 100%".to_string(),
+                        "Percentage cannot exceed 100%".to_string(),
                     ));
                 }
             }
         }
-
         validators::combine_results(results)
     }
 }
 
-// 3. Tax Management Component
+// 4. Tax Management Component
 #[component]
 pub fn Taxes() -> impl IntoView {
     let initial_taxes = vec![
         TaxItem {
             id: "1".to_string(),
             name: "VAT".to_string(),
+            tax_type: TaxType::Percentage,
             rate: 10.00,
         },
         TaxItem {
             id: "2".to_string(),
             name: "Service Tax".to_string(),
+            tax_type: TaxType::Percentage,
             rate: 5.00,
+        },
+        TaxItem {
+            id: "3".to_string(),
+            name: "Flat Fee Tax".to_string(),
+            tax_type: TaxType::FixedAmount,
+            rate: 25.00,
         },
     ];
 
@@ -122,6 +154,7 @@ pub fn Taxes() -> impl IntoView {
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
+    let (tax_type_value, set_tax_type_value) = signal(TaxType::Percentage);
     let (rate_value, set_rate_value) = signal(String::new());
 
     // Update form fields when grid state changes
@@ -130,6 +163,7 @@ pub fn Taxes() -> impl IntoView {
             let form_state = grid.form_state.get();
             let form = form_state.current_form;
             set_name_value.set(form.name);
+            set_tax_type_value.set(form.tax_type);
             set_rate_value.set(form.rate);
         }
     });
@@ -140,15 +174,15 @@ pub fn Taxes() -> impl IntoView {
 
         let form_data = TaxForm {
             name: name_value.get(),
+            tax_type: tax_type_value.get(),
             rate: rate_value.get(),
         };
 
-        // Validate before submitting
         let validation = form_data.validate();
         if validation.is_valid {
             grid.actions.submit_form.run(form_data);
-            // Clear form after successful submission
             set_name_value.set(String::new());
+            set_tax_type_value.set(TaxType::Percentage);
             set_rate_value.set(String::new());
         }
     };
@@ -157,23 +191,36 @@ pub fn Taxes() -> impl IntoView {
     let handle_name_input = move |ev| {
         let value = event_target_value(&ev);
         set_name_value.set(value.clone());
-
-        let form_data = TaxForm {
+        grid.actions.update_form.run(TaxForm {
             name: value,
+            tax_type: tax_type_value.get(),
             rate: rate_value.get(),
+        });
+    };
+
+    let handle_tax_type_change = move |ev| {
+        let value = event_target_value(&ev);
+        let tax_type = if value == "FixedAmount" {
+            TaxType::FixedAmount
+        } else {
+            TaxType::Percentage
         };
-        grid.actions.update_form.run(form_data);
+        set_tax_type_value.set(tax_type.clone());
+        grid.actions.update_form.run(TaxForm {
+            name: name_value.get(),
+            tax_type,
+            rate: rate_value.get(),
+        });
     };
 
     let handle_rate_input = move |ev| {
         let value = event_target_value(&ev);
         set_rate_value.set(value.clone());
-
-        let form_data = TaxForm {
+        grid.actions.update_form.run(TaxForm {
             name: name_value.get(),
+            tax_type: tax_type_value.get(),
             rate: value,
-        };
-        grid.actions.update_form.run(form_data);
+        });
     };
 
     view! {
@@ -188,7 +235,7 @@ pub fn Taxes() -> impl IntoView {
                 </h3>
 
                 <form on:submit=handle_submit>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label class="form-label" for="tax-name">
                                 "Tax Name"
@@ -205,8 +252,29 @@ pub fn Taxes() -> impl IntoView {
                             />
                         </div>
                         <div>
+                            <label class="form-label" for="tax-type">
+                                "Type"
+                            </label>
+                            <select
+                                class="form-select"
+                                id="tax-type"
+                                name="tax-type"
+                                prop:value=move || {
+                                    if matches!(tax_type_value.get(), TaxType::FixedAmount) {
+                                        "FixedAmount"
+                                    } else {
+                                        "Percentage"
+                                    }
+                                }
+                                on:change=handle_tax_type_change
+                            >
+                                <option value="Percentage">"Percentage (%)"</option>
+                                <option value="FixedAmount">"Fixed Amount ($)"</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="form-label" for="tax-rate">
-                                "Rate (%)"
+                                "Rate"
                             </label>
                             <input
                                 class="form-input"
@@ -214,9 +282,15 @@ pub fn Taxes() -> impl IntoView {
                                 name="tax-rate"
                                 placeholder="0.00"
                                 type="number"
-                                step="0.1"
+                                step="any"
                                 min="0"
-                                max="100"
+                                max=move || {
+                                    if matches!(tax_type_value.get(), TaxType::Percentage) {
+                                        "100"
+                                    } else {
+                                        ""
+                                    }
+                                }
                                 prop:value=move || rate_value.get()
                                 on:input=handle_rate_input
                                 required
@@ -231,6 +305,7 @@ pub fn Taxes() -> impl IntoView {
                                 on:click=move |_| {
                                     grid.actions.cancel_edit.run(());
                                     set_name_value.set(String::new());
+                                    set_tax_type_value.set(TaxType::Percentage);
                                     set_rate_value.set(String::new());
                                 }
                             >
@@ -268,7 +343,10 @@ pub fn Taxes() -> impl IntoView {
                                                 <div class="flex justify-between items-start mb-2">
                                                     <h3 class="font-semibold text-lg">{item.name.clone()}</h3>
                                                     <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                                                        {format!("{}%", item.rate)}
+                                                        {match item.tax_type {
+                                                            TaxType::Percentage => format!("{}%", item.rate),
+                                                            TaxType::FixedAmount => format!("${:.2}", item.rate),
+                                                        }}
                                                     </span>
                                                 </div>
                                                 <div class="flex justify-end space-x-2 mt-3">
@@ -320,7 +398,13 @@ pub fn Taxes() -> impl IntoView {
                                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                                 scope="col"
                                             >
-                                                "Rate (%)"
+                                                "Type"
+                                            </th>
+                                            <th
+                                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                                scope="col"
+                                            >
+                                                "Rate"
                                             </th>
                                             <th class="relative px-6 py-3" scope="col">
                                                 <span class="sr-only">"Actions"</span>
@@ -340,7 +424,13 @@ pub fn Taxes() -> impl IntoView {
                                                             {item.name.clone()}
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {format!("{:.2}", item.rate)}
+                                                            {item.tax_type.to_string()}
+                                                        </td>
+                                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            {match item.tax_type {
+                                                                TaxType::Percentage => format!("{:.2}%", item.rate),
+                                                                TaxType::FixedAmount => format!("${:.2}", item.rate),
+                                                            }}
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                             <button
@@ -368,7 +458,7 @@ pub fn Taxes() -> impl IntoView {
                                             <tr>
                                                 <td
                                                     class="px-6 py-12 text-center text-sm text-gray-500"
-                                                    colspan="3"
+                                                    colspan="4"
                                                 >
                                                     "No taxes found. Add your first tax using the form above."
                                                 </td>
@@ -386,17 +476,8 @@ pub fn Taxes() -> impl IntoView {
             // Stats section
             <div class="mt-6 bg-gray-50 p-4 rounded-lg">
                 <div class="text-sm text-gray-600">
-                    "Total taxes: " {move || grid.item_count.get()} " | Average rate: "
-                    {move || {
-                        let items = grid.items.get();
-                        if items.is_empty() {
-                            "0.00%".to_string()
-                        } else {
-                            let avg = items.iter().map(|i| i.data.rate).sum::<f64>()
-                                / items.len() as f64;
-                            format!("{:.2}%", avg)
-                        }
-                    }} " | Device: " {move || format!("{:?}", grid.device_type.get())}
+                    "Total taxes: " {move || grid.item_count.get()} " | Device: "
+                    {move || format!("{:?}", grid.device_type.get())}
                 </div>
             </div>
         </div>
