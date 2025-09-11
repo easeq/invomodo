@@ -1,8 +1,8 @@
-use super::LineItems;
+use super::{InvoiceBuilderState, LineItems};
 use leptos::prelude::*;
 
 #[component]
-pub fn Builder() -> impl IntoView {
+pub fn Builder(state: InvoiceBuilderState) -> impl IntoView {
     view! {
         <div class="container mx-auto p-4">
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -13,7 +13,7 @@ pub fn Builder() -> impl IntoView {
                             <label class="form-label" for="template">
                                 "Template"
                             </label>
-                            <select class="form-input" id="template" name="template">
+                            <select class="form-select" id="template" name="template">
                                 <option>"Default Template"</option>
                                 <option>"Modern"</option>
                                 <option>"Classic"</option>
@@ -23,7 +23,7 @@ pub fn Builder() -> impl IntoView {
                             <label class="form-label" for="locale">
                                 "Locale"
                             </label>
-                            <select class="form-input" id="locale" name="locale">
+                            <select class="form-select" id="locale" name="locale">
                                 <option>"English (US)"</option>
                                 <option>"Français (FR)"</option>
                                 <option>"Español (ES)"</option>
@@ -90,7 +90,12 @@ pub fn Builder() -> impl IntoView {
                     </div>
                 </div>
             </div>
-            <LineItems />
+            <LineItems
+                state=state.line_items
+                taxes=state.taxes.read_only()
+                discounts=state.discounts.read_only()
+                charges=state.charges.read_only()
+            />
         </div>
     }
 }

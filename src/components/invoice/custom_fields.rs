@@ -1,11 +1,12 @@
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
 };
 
 // 1. Define enums for custom field categories and types
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum FieldCategory {
     #[default]
     GlobalInvoice,
@@ -27,7 +28,7 @@ impl std::fmt::Display for FieldCategory {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum FieldType {
     #[default]
     Text,
@@ -56,7 +57,7 @@ impl std::fmt::Display for FieldType {
 }
 
 // 2. Define your data structure for Custom Fields
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct CustomFieldItem {
     pub id: String,
     pub name: String,
@@ -154,38 +155,8 @@ impl FormValidation for CustomFieldForm {
 
 // 4. Custom Field Management Component
 #[component]
-pub fn CustomFields() -> impl IntoView {
-    let initial_custom_fields = vec![
-        CustomFieldItem {
-            id: "1".to_string(),
-            name: "Due Date".to_string(),
-            field_type: FieldType::Date,
-            category: FieldCategory::GlobalInvoice,
-            default_value: "30 days".to_string(),
-            required: true,
-            is_default: true,
-        },
-        CustomFieldItem {
-            id: "2".to_string(),
-            name: "PO Number".to_string(),
-            field_type: FieldType::Number,
-            category: FieldCategory::GlobalInvoice,
-            default_value: String::new(),
-            required: false,
-            is_default: false,
-        },
-        CustomFieldItem {
-            id: "3".to_string(),
-            name: "Client ID".to_string(),
-            field_type: FieldType::Text,
-            category: FieldCategory::ClientAddress,
-            default_value: "CUST-".to_string(),
-            required: false,
-            is_default: false,
-        },
-    ];
-
-    let grid = use_editable_grid(initial_custom_fields);
+pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
+    let grid = use_editable_grid(state.get());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());

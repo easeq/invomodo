@@ -1,11 +1,12 @@
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
 };
 
 // 1. Define enum for tax type
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum TaxType {
     #[default]
     Percentage,
@@ -22,7 +23,7 @@ impl std::fmt::Display for TaxType {
 }
 
 // 2. Define your data structure for Tax
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct TaxItem {
     pub id: String,
     pub name: String,
@@ -128,29 +129,8 @@ impl FormValidation for TaxForm {
 
 // 4. Tax Management Component
 #[component]
-pub fn Taxes() -> impl IntoView {
-    let initial_taxes = vec![
-        TaxItem {
-            id: "1".to_string(),
-            name: "VAT".to_string(),
-            tax_type: TaxType::Percentage,
-            rate: 10.00,
-        },
-        TaxItem {
-            id: "2".to_string(),
-            name: "Service Tax".to_string(),
-            tax_type: TaxType::Percentage,
-            rate: 5.00,
-        },
-        TaxItem {
-            id: "3".to_string(),
-            name: "Flat Fee Tax".to_string(),
-            tax_type: TaxType::FixedAmount,
-            rate: 25.00,
-        },
-    ];
-
-    let grid = use_editable_grid(initial_taxes);
+pub fn Taxes(state: RwSignal<Vec<TaxItem>>) -> impl IntoView {
+    let grid = use_editable_grid(state.get());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());

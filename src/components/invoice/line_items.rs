@@ -1,44 +1,13 @@
 use leptos::prelude::*;
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 
+use super::*;
 use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
 };
 
-// Assuming these structs are available from other modules
-// For this component, we'll use mock data.
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct TaxItem {
-    pub id: String,
-    pub name: String,
-    pub rate: f64,
-}
-
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct DiscountItem {
-    pub id: String,
-    pub name: String,
-    pub discount_type: String, // "FixedAmount" or "Percentage"
-    pub value: f64,
-}
-
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct ChargeItem {
-    pub id: String,
-    pub name: String,
-    pub amount: f64,
-}
-
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct CustomFieldItem {
-    pub id: String,
-    pub name: String,
-    pub field_type: String, // "Text", "Number", etc.
-    pub default_value: String,
-}
-
 // 1. Define your data structure for Line Items
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct LineItem {
     pub id: String,
     pub name: String,
@@ -159,73 +128,13 @@ impl FormValidation for LineItemForm {
 
 // 3. Line Items Management Component
 #[component]
-pub fn LineItems() -> impl IntoView {
-    // Mock data for other components
-    let all_taxes = Arc::new(vec![
-        TaxItem {
-            id: "tax_1".to_string(),
-            name: "VAT".to_string(),
-            rate: 10.0,
-        },
-        TaxItem {
-            id: "tax_2".to_string(),
-            name: "GST".to_string(),
-            rate: 5.0,
-        },
-    ]);
-    let all_discounts = Arc::new(vec![
-        DiscountItem {
-            id: "discount_1".to_string(),
-            name: "Early Bird".to_string(),
-            discount_type: "Percentage".to_string(),
-            value: 10.0,
-        },
-        DiscountItem {
-            id: "discount_2".to_string(),
-            name: "Bulk Order".to_string(),
-            discount_type: "FixedAmount".to_string(),
-            value: 25.0,
-        },
-    ]);
-    let all_charges = Arc::new(vec![
-        ChargeItem {
-            id: "charge_1".to_string(),
-            name: "Shipping".to_string(),
-            amount: 15.0,
-        },
-        ChargeItem {
-            id: "charge_2".to_string(),
-            name: "Handling Fee".to_string(),
-            amount: 5.0,
-        },
-    ]);
-
-    let initial_line_items = vec![
-        LineItem {
-            id: "line_1".to_string(),
-            name: "Product A".to_string(),
-            description: "Software license".to_string(),
-            quantity: 2.0,
-            unit_price: 100.0,
-            taxes: vec![all_taxes[0].clone()],
-            discounts: Vec::new(),
-            charges: vec![all_charges[0].clone()],
-            custom_fields: Vec::new(),
-        },
-        LineItem {
-            id: "line_2".to_string(),
-            name: "Service B".to_string(),
-            description: "Consulting hours".to_string(),
-            quantity: 5.0,
-            unit_price: 50.0,
-            taxes: Vec::new(),
-            discounts: vec![all_discounts[0].clone()],
-            charges: Vec::new(),
-            custom_fields: Vec::new(),
-        },
-    ];
-
-    let grid = use_editable_grid(initial_line_items);
+pub fn LineItems(
+    state: RwSignal<Vec<LineItem>>,
+    taxes: ReadSignal<Vec<TaxItem>>,
+    discounts: ReadSignal<Vec<DiscountItem>>,
+    charges: ReadSignal<Vec<ChargeItem>>,
+) -> impl IntoView {
+    let grid = use_editable_grid(state.get());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
@@ -238,9 +147,9 @@ pub fn LineItems() -> impl IntoView {
 
     // Computed signal for line item total
     let total = Signal::derive({
-        let all_taxes = all_taxes.clone();
-        let all_discounts = all_discounts.clone();
-        let all_charges = all_charges.clone();
+        let all_taxes = taxes.get();
+        let all_discounts = discounts.get();
+        let all_charges = charges.get();
         move || {
             let form = grid.form_state.get().current_form;
             let quantity = form.quantity.parse::<f64>().unwrap_or(0.0);
@@ -261,10 +170,11 @@ pub fn LineItems() -> impl IntoView {
             // Apply discounts
             for discount_id in discounts {
                 if let Some(discount) = all_discounts.iter().find(|d| d.id == discount_id) {
-                    match discount.discount_type.as_str() {
-                        "Percentage" => base_total -= base_total * (discount.value / 100.0),
-                        "FixedAmount" => base_total -= discount.value,
-                        _ => {}
+                    match discount.discount_type {
+                        DiscountType::Percentage => {
+                            base_total -= base_total * (discount.value / 100.0)
+                        }
+                        DiscountType::FixedAmount => base_total -= discount.value,
                     }
                 }
             }
@@ -474,7 +384,7 @@ pub fn LineItems() -> impl IntoView {
                             <div class="space-y-2">
                                 <For
                                     each={
-                                        let all_taxes = all_taxes.clone();
+                                        let all_taxes = taxes.get();
                                         move || {
                                             <Vec<TaxItem> as Clone>::clone(&all_taxes).into_iter()
                                         }
@@ -504,7 +414,7 @@ pub fn LineItems() -> impl IntoView {
                             <div class="space-y-2">
                                 <For
                                     each={
-                                        let all_discounts = all_discounts.clone();
+                                        let all_discounts = discounts.get();
                                         move || {
                                             <Vec<DiscountItem> as Clone>::clone(&all_discounts)
                                                 .into_iter()
@@ -542,7 +452,7 @@ pub fn LineItems() -> impl IntoView {
                             <div class="space-y-2">
                                 <For
                                     each={
-                                        let all_charges = all_charges.clone();
+                                        let all_charges = charges.get();
                                         move || {
                                             <Vec<ChargeItem> as Clone>::clone(&all_charges).into_iter()
                                         }

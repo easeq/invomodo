@@ -1,11 +1,12 @@
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
 };
 
 // 1. Define enums for discount type and scope
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum DiscountType {
     #[default]
     Percentage,
@@ -21,7 +22,7 @@ impl std::fmt::Display for DiscountType {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum DiscountScope {
     #[default]
     GlobalInvoice,
@@ -38,7 +39,7 @@ impl std::fmt::Display for DiscountScope {
 }
 
 // 2. Define your data structure for Discounts
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DiscountItem {
     pub id: String,
     pub name: String,
@@ -162,40 +163,9 @@ impl FormValidation for DiscountForm {
     }
 }
 
-// 4. Discounts Management Component
 #[component]
-pub fn Discounts() -> impl IntoView {
-    let initial_discounts = vec![
-        DiscountItem {
-            id: "1".to_string(),
-            name: "Early Bird Discount".to_string(),
-            description: "10% discount for early payment".to_string(),
-            discount_type: DiscountType::Percentage,
-            value: 10.0,
-            scope: DiscountScope::GlobalInvoice,
-            is_default: true,
-        },
-        DiscountItem {
-            id: "2".to_string(),
-            name: "Bulk Order Discount".to_string(),
-            description: "$50 off for bulk orders".to_string(),
-            discount_type: DiscountType::FixedAmount,
-            value: 50.0,
-            scope: DiscountScope::LineItem,
-            is_default: false,
-        },
-        DiscountItem {
-            id: "3".to_string(),
-            name: "Loyalty Discount".to_string(),
-            description: "20% off for loyal customers".to_string(),
-            discount_type: DiscountType::Percentage,
-            value: 20.0,
-            scope: DiscountScope::GlobalInvoice,
-            is_default: false,
-        },
-    ];
-
-    let grid = use_editable_grid(initial_discounts);
+pub fn Discounts(state: RwSignal<Vec<DiscountItem>>) -> impl IntoView {
+    let grid = use_editable_grid(state.get());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());

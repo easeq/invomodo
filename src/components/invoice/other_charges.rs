@@ -1,11 +1,12 @@
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
 };
 
 // 1. Define enums for charge scope
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum ChargeScope {
     #[default]
     GlobalInvoice,
@@ -22,7 +23,7 @@ impl std::fmt::Display for ChargeScope {
 }
 
 // 2. Define your data structure for Other Charges
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ChargeItem {
     pub id: String,
     pub name: String,
@@ -129,35 +130,8 @@ impl FormValidation for ChargeForm {
 
 // 4. Other Charges Management Component
 #[component]
-pub fn OtherCharges() -> impl IntoView {
-    let initial_other_charges = vec![
-        ChargeItem {
-            id: "1".to_string(),
-            name: "Shipping Fee".to_string(),
-            description: "Standard shipping charge".to_string(),
-            amount: 5.00,
-            scope: ChargeScope::GlobalInvoice,
-            is_default: true,
-        },
-        ChargeItem {
-            id: "2".to_string(),
-            name: "Handling Fee".to_string(),
-            description: "Fee for handling fragile items".to_string(),
-            amount: 10.00,
-            scope: ChargeScope::LineItem,
-            is_default: false,
-        },
-        ChargeItem {
-            id: "3".to_string(),
-            name: "Rush Order Fee".to_string(),
-            description: "Fee for expedited order processing".to_string(),
-            amount: 25.00,
-            scope: ChargeScope::GlobalInvoice,
-            is_default: false,
-        },
-    ];
-
-    let grid = use_editable_grid(initial_other_charges);
+pub fn OtherCharges(state: RwSignal<Vec<ChargeItem>>) -> impl IntoView {
+    let grid = use_editable_grid(state.get());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
