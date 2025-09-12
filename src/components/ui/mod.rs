@@ -1,3 +1,4 @@
+mod autocomplete;
 mod badge;
 mod button;
 mod card;
@@ -7,11 +8,12 @@ mod switch;
 mod table;
 mod tabs;
 
-pub use badge::Badge;
-pub use button::Button;
-pub use card::Card;
-pub use input::Input;
-pub use select::Select;
-pub use switch::Switch;
-pub use table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow};
+pub use autocomplete::*;
+pub use badge::*;
+pub use button::*;
+pub use card::*;
+pub use input::*;
+pub use select::*;
+pub use switch::*;
+pub use table::*;
 pub use tabs::*;

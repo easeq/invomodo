@@ -26,9 +26,9 @@ pub struct LineItemForm {
     pub description: String,
     pub quantity: String,
     pub unit_price: String,
-    pub taxes: Vec<String>, // IDs of selected taxes
-    pub discounts: Vec<String>,
-    pub charges: Vec<String>,
+    pub taxes: Vec<TaxItem>, // IDs of selected taxes
+    pub discounts: Vec<DiscountItem>,
+    pub charges: Vec<ChargeItem>,
 }
 
 // 2. Implement required traits
@@ -55,9 +55,9 @@ impl FormData for LineItem {
             description: self.description.clone(),
             quantity: self.quantity.to_string(),
             unit_price: self.unit_price.to_string(),
-            taxes: self.taxes.iter().map(|t| t.id.clone()).collect(),
-            discounts: self.discounts.iter().map(|d| d.id.clone()).collect(),
-            charges: self.charges.iter().map(|c| c.id.clone()).collect(),
+            taxes: self.taxes.iter().map(|t| t.clone()).collect(),
+            discounts: self.discounts.iter().map(|d| d.clone()).collect(),
+            charges: self.charges.iter().map(|c| c.clone()).collect(),
         }
     }
 
@@ -108,14 +108,14 @@ impl FormValidation for LineItemForm {
             validators::required(&self.unit_price, "Unit Price"),
         ];
 
-        if let Err(_) = self.quantity.parse::<f64>() {
+        if self.quantity.parse::<f64>().is_err() {
             results.push(ValidationResult::new().with_field_error(
                 "quantity".to_string(),
                 "Quantity must be a valid number".to_string(),
             ));
         }
 
-        if let Err(_) = self.unit_price.parse::<f64>() {
+        if self.unit_price.parse::<f64>().is_err() {
             results.push(ValidationResult::new().with_field_error(
                 "unit-price".to_string(),
                 "Unit Price must be a valid number".to_string(),
@@ -134,42 +134,39 @@ pub fn LineItems(
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
 ) -> impl IntoView {
-    let grid = use_editable_grid(state.get());
+    let grid = use_editable_grid(state.read_only(), state.write_only());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
     let (description_value, set_description_value) = signal(String::new());
     let (quantity_value, set_quantity_value) = signal(String::new());
     let (unit_price_value, set_unit_price_value) = signal(String::new());
-    let (selected_taxes, set_selected_taxes) = signal(Vec::<String>::new());
-    let (selected_discounts, set_selected_discounts) = signal(Vec::<String>::new());
-    let (selected_charges, set_selected_charges) = signal(Vec::<String>::new());
+    let (selected_taxes, set_selected_taxes) = signal(Vec::<TaxItem>::new());
+    let (selected_discounts, set_selected_discounts) = signal(Vec::<DiscountItem>::new());
+    let (selected_charges, set_selected_charges) = signal(Vec::<ChargeItem>::new());
 
     // Computed signal for line item total
     let total = Signal::derive({
-        let all_taxes = taxes.get();
-        let all_discounts = discounts.get();
-        let all_charges = charges.get();
         move || {
             let form = grid.form_state.get().current_form;
             let quantity = form.quantity.parse::<f64>().unwrap_or(0.0);
             let unit_price = form.unit_price.parse::<f64>().unwrap_or(0.0);
             let mut base_total = quantity * unit_price;
 
-            let taxes = form.taxes;
-            let discounts = form.discounts;
-            let charges = form.charges;
+            let form_taxes = form.taxes;
+            let form_discounts = form.discounts;
+            let form_charges = form.charges;
 
             // Apply taxes
-            for tax_id in taxes {
-                if let Some(tax) = all_taxes.iter().find(|t| t.id == tax_id) {
+            for form_tax in form_taxes {
+                if let Some(tax) = taxes.get().iter().find(|t| t.id == form_tax.id) {
                     base_total += base_total * (tax.rate / 100.0);
                 }
             }
 
             // Apply discounts
-            for discount_id in discounts {
-                if let Some(discount) = all_discounts.iter().find(|d| d.id == discount_id) {
+            for form_discount in form_discounts {
+                if let Some(discount) = discounts.get().iter().find(|d| d.id == form_discount.id) {
                     match discount.discount_type {
                         DiscountType::Percentage => {
                             base_total -= base_total * (discount.value / 100.0)
@@ -180,8 +177,8 @@ pub fn LineItems(
             }
 
             // Apply charges
-            for charge_id in charges {
-                if let Some(charge) = all_charges.iter().find(|c| c.id == charge_id) {
+            for form_charge in form_charges {
+                if let Some(charge) = charges.get().iter().find(|c| c.id == form_charge.id) {
                     base_total += charge.amount;
                 }
             }
@@ -261,56 +258,58 @@ pub fn LineItems(
         update_form();
     };
 
-    let handle_taxes_change = move |ev| {
-        let value = event_target_value(&ev);
-        let mut new_taxes = selected_taxes.get();
-        if new_taxes.contains(&value) {
-            new_taxes.retain(|x| x != &value);
-        } else {
-            new_taxes.push(value);
-        }
-        set_selected_taxes.set(new_taxes);
-        update_form();
-    };
-
-    let handle_discounts_change = move |ev| {
-        let value = event_target_value(&ev);
-        let mut new_discounts = selected_discounts.get();
-        if new_discounts.contains(&value) {
-            new_discounts.retain(|x| x != &value);
-        } else {
-            new_discounts.push(value);
-        }
-        set_selected_discounts.set(new_discounts);
-        update_form();
-    };
-
-    let handle_charges_change = move |ev| {
-        let value = event_target_value(&ev);
-        let mut new_charges = selected_charges.get();
-        if new_charges.contains(&value) {
-            new_charges.retain(|x| x != &value);
-        } else {
-            new_charges.push(value);
-        }
-        set_selected_charges.set(new_charges);
-        update_form();
-    };
+    // let handle_taxes_change = move |ev| {
+    //     let value = event_target_value(&ev);
+    //     let mut new_taxes = selected_taxes.get();
+    //     if new_taxes.contains(&value) {
+    //         new_taxes.retain(|x| x != &value);
+    //     } else {
+    //         new_taxes.push(value);
+    //     }
+    //     set_selected_taxes.set(new_taxes);
+    //     update_form();
+    // };
+    //
+    // let handle_discounts_change = move |ev| {
+    //     let value = event_target_value(&ev);
+    //     let mut new_discounts = selected_discounts.get();
+    //     if new_discounts.contains(&value) {
+    //         new_discounts.retain(|x| x != &value);
+    //     } else {
+    //         new_discounts.push(value);
+    //     }
+    //     set_selected_discounts.set(new_discounts);
+    //     update_form();
+    // };
+    //
+    // let handle_charges_change = move |ev| {
+    //     let value = event_target_value(&ev);
+    //     let mut new_charges = selected_charges.get();
+    //     if new_charges.contains(&value) {
+    //         new_charges.retain(|x| x != &value);
+    //     } else {
+    //         new_charges.push(value);
+    //     }
+    //     set_selected_charges.set(new_charges);
+    //     update_form();
+    // };
 
     view! {
         <div class="container mx-auto p-4">
             // Line Item Form Section
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-6">
+            <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">
                     {move || {
-                        let form_state = grid.form_state.get();
-                        if form_state.is_editing { "Edit Line Item" } else { "Add New Line Item" }
+                        if grid.form_state.get().is_editing {
+                            "Edit Line Item"
+                        } else {
+                            "Add New Line Item"
+                        }
                     }}
-                </h3>
-
+                </h1>
                 <form on:submit=handle_submit>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div class="md:col-span-2">
+                    <div class="space-y-6">
+                        <div>
                             <label class="form-label" for="item-name">
                                 "Item Name"
                             </label>
@@ -325,12 +324,12 @@ pub fn LineItems(
                                 required
                             />
                         </div>
-                        <div class="md:col-span-2 lg:col-span-3">
+                        <div>
                             <label class="form-label" for="item-description">
                                 "Description"
                             </label>
                             <textarea
-                                class="form-textarea"
+                                class="form-input"
                                 id="item-description"
                                 name="item-description"
                                 prop:value=move || description_value.get()
@@ -339,174 +338,61 @@ pub fn LineItems(
                                 placeholder="Optional description of the service or product"
                             ></textarea>
                         </div>
-                        <div>
-                            <label class="form-label" for="item-quantity">
-                                "Quantity"
-                            </label>
-                            <input
-                                class="form-input"
-                                id="item-quantity"
-                                name="item-quantity"
-                                type="number"
-                                step="any"
-                                min="0"
-                                prop:value=move || quantity_value.get()
-                                on:input=handle_quantity_input
-                                required
-                            />
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <label class="form-label" for="item-quantity">
+                                    "Quantity"
+                                </label>
+                                <input
+                                    class="form-input"
+                                    id="item-quantity"
+                                    name="item-quantity"
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    prop:value=move || quantity_value.get()
+                                    on:input=handle_quantity_input
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label class="form-label" for="unit-price">
+                                    "Unit Price"
+                                </label>
+                                <input
+                                    class="form-input"
+                                    id="unit-price"
+                                    name="unit-price"
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    prop:value=move || unit_price_value.get()
+                                    on:input=handle_unit_price_input
+                                    required
+                                />
+                            </div>
                         </div>
                         <div>
-                            <label class="form-label" for="unit-price">
-                                "Unit Price"
-                            </label>
-                            <input
-                                class="form-input"
-                                id="unit-price"
-                                name="unit-price"
-                                type="number"
-                                step="any"
-                                min="0"
-                                prop:value=move || unit_price_value.get()
-                                on:input=handle_unit_price_input
-                                required
-                            />
+                            <LineItemCharges />
                         </div>
-                        <div class="md:col-span-2 lg:col-span-1 flex items-center justify-center bg-gray-100 rounded-md p-3">
-                            <span class="text-lg font-bold text-gray-800">
-                                "Total: " {move || format!("${:.2}", total.get())}
-                            </span>
+                        <div class="flex justify-between items-center bg-gray-100 rounded-lg p-4">
+                            <h2 class="text-lg font-semibold text-gray-800">Total</h2>
+                            <p class="text-3xl font-bold text-gray-800">
+                                {move || format!("${:.2}", total.get())}
+                            </p>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                        <div>
-                            <label class="form-label">"Taxes"</label>
-                            <div class="space-y-2">
-                                <For
-                                    each={
-                                        let all_taxes = taxes.get();
-                                        move || {
-                                            <Vec<TaxItem> as Clone>::clone(&all_taxes).into_iter()
-                                        }
-                                    }
-                                    key=|tax| tax.id.clone()
-                                    children=move |tax| {
-                                        view! {
-                                            <label class="form-checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    class="form-checkbox"
-                                                    on:change=handle_taxes_change
-                                                    prop:value=tax.id.clone()
-                                                    prop:checked=move || selected_taxes.get().contains(&tax.id)
-                                                />
-                                                <span class="ml-2 text-sm text-gray-700">
-                                                    {format!("{} ({}%)", tax.name, tax.rate)}
-                                                </span>
-                                            </label>
-                                        }
-                                    }
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="form-label">"Discounts"</label>
-                            <div class="space-y-2">
-                                <For
-                                    each={
-                                        let all_discounts = discounts.get();
-                                        move || {
-                                            <Vec<DiscountItem> as Clone>::clone(&all_discounts)
-                                                .into_iter()
-                                        }
-                                    }
-                                    key=|discount| discount.id.clone()
-                                    children=move |discount| {
-                                        view! {
-                                            <label class="form-checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    class="form-checkbox"
-                                                    on:change=handle_discounts_change
-                                                    prop:value=discount.id.clone()
-                                                    prop:checked=move || {
-                                                        selected_discounts.get().contains(&discount.id)
-                                                    }
-                                                />
-                                                <span class="ml-2 text-sm text-gray-700">
-                                                    {format!(
-                                                        "{} ({} {})",
-                                                        discount.name,
-                                                        discount.value,
-                                                        discount.discount_type,
-                                                    )}
-                                                </span>
-                                            </label>
-                                        }
-                                    }
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="form-label">"Other Charges"</label>
-                            <div class="space-y-2">
-                                <For
-                                    each={
-                                        let all_charges = charges.get();
-                                        move || {
-                                            <Vec<ChargeItem> as Clone>::clone(&all_charges).into_iter()
-                                        }
-                                    }
-                                    key=|charge| charge.id.clone()
-                                    children=move |charge| {
-                                        view! {
-                                            <label class="form-checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    class="form-checkbox"
-                                                    on:change=handle_charges_change
-                                                    prop:value=charge.id.clone()
-                                                    prop:checked=move || {
-                                                        selected_charges.get().contains(&charge.id)
-                                                    }
-                                                />
-                                                <span class="ml-2 text-sm text-gray-700">
-                                                    {format!("{} (${:.2})", charge.name, charge.amount)}
-                                                </span>
-                                            </label>
-                                        }
-                                    }
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 flex justify-end gap-3">
-                        <Show when=move || grid.form_state.get().is_editing>
-                            <button
-                                class="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                type="button"
-                                on:click=move |_| {
-                                    grid.actions.cancel_edit.run(());
-                                    set_name_value.set(String::new());
-                                    set_description_value.set(String::new());
-                                    set_quantity_value.set(String::new());
-                                    set_unit_price_value.set(String::new());
-                                    set_selected_taxes.set(Vec::new());
-                                    set_selected_discounts.set(Vec::new());
-                                    set_selected_charges.set(Vec::new());
-                                }
-                            >
-                                "Cancel"
-                            </button>
-                        </Show>
+                    <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end">
                         <button
-                            class="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                             type="submit"
                         >
                             {move || {
-                                let form_state = grid.form_state.get();
-                                if form_state.is_editing { "Update Item" } else { "Add Item" }
+                                if grid.form_state.get().is_editing {
+                                    "Update Item"
+                                } else {
+                                    "Add Item"
+                                }
                             }}
                         </button>
                     </div>

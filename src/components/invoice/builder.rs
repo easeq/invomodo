@@ -1,8 +1,13 @@
-use super::{InvoiceBuilderState, LineItems};
+use super::*;
 use leptos::prelude::*;
 
 #[component]
-pub fn Builder(state: InvoiceBuilderState) -> impl IntoView {
+pub fn Builder(
+    line_items: RwSignal<Vec<LineItem>>,
+    taxes: ReadSignal<Vec<TaxItem>>,
+    discounts: ReadSignal<Vec<DiscountItem>>,
+    charges: ReadSignal<Vec<ChargeItem>>,
+) -> impl IntoView {
     view! {
         <div class="container mx-auto p-4">
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -90,12 +95,7 @@ pub fn Builder(state: InvoiceBuilderState) -> impl IntoView {
                     </div>
                 </div>
             </div>
-            <LineItems
-                state=state.line_items
-                taxes=state.taxes.read_only()
-                discounts=state.discounts.read_only()
-                charges=state.charges.read_only()
-            />
+            <LineItems state=line_items taxes=taxes discounts=discounts charges=charges />
         </div>
     }
 }

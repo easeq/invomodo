@@ -38,10 +38,9 @@ pub fn InternalTab(name: String, label: String) -> impl IntoView {
 pub fn InvoiceBuilder() -> impl IntoView {
     let invoice_builder_state = InvoiceBuilderState::new();
 
-    let invoice_builder_state_clone = invoice_builder_state.clone();
     view! {
         <div class="lg:col-span-2 space-y-6">
-            <TabsProvider default="taxes".to_string()>
+            <TabsProvider default="builder".to_string()>
                 <div class="bg-white rounded-md shadow-sm border border-gray-200">
                     <div class="border-b border-gray-200">
                         <div class="flex px-4">
@@ -63,7 +62,12 @@ pub fn InvoiceBuilder() -> impl IntoView {
                         </div>
                     </div>
                     <TabPanel name="builder".to_string()>
-                        <Builder state=invoice_builder_state_clone.clone() />
+                        <Builder
+                            line_items=invoice_builder_state.line_items
+                            taxes=invoice_builder_state.taxes.read_only()
+                            discounts=invoice_builder_state.discounts.read_only()
+                            charges=invoice_builder_state.charges.read_only()
+                        />
                     </TabPanel>
                     <TabPanel name="taxes".to_string()>
                         <Taxes state=invoice_builder_state.taxes />

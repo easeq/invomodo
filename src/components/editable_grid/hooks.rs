@@ -87,7 +87,10 @@ where
 }
 
 /// Main headless hook for editable grid functionality
-pub fn use_editable_grid<T, P>(initial_data: Vec<T>) -> UseEditableGridReturn<T, P>
+pub fn use_editable_grid<T, P>(
+    items: ReadSignal<Vec<T>>,
+    set_items: WriteSignal<Vec<T>>,
+) -> UseEditableGridReturn<T, P>
 where
     T: FormData<FormProps = P>
         + ItemData
@@ -99,7 +102,6 @@ where
         + 'static,
     P: Default + Clone + PartialEq + Send + Sync + 'static,
 {
-    let (items, set_items) = signal(initial_data);
     let (current_form, set_current_form) = signal(P::default());
     let (editing_index, set_editing_index) = signal(None::<usize>);
 
@@ -156,7 +158,6 @@ where
 {
     let submit_form = Callback::new(move |form_data: P| {
         let new_item = T::from_form_props(&form_data);
-        log::debug!("new_item: {new_item:#?}");
 
         let mut current_items = items.get_untracked();
 
@@ -172,8 +173,6 @@ where
         }
 
         set_items.set(current_items);
-
-        log::debug!("new items {:#?}", items.get().clone());
 
         set_editing_index.set(None);
         set_current_form.set(P::default());

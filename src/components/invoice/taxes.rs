@@ -130,7 +130,7 @@ impl FormValidation for TaxForm {
 // 4. Tax Management Component
 #[component]
 pub fn Taxes(state: RwSignal<Vec<TaxItem>>) -> impl IntoView {
-    let grid = use_editable_grid(state.get());
+    let grid = use_editable_grid(state.read_only(), state.write_only());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());

@@ -156,7 +156,7 @@ impl FormValidation for CustomFieldForm {
 // 4. Custom Field Management Component
 #[component]
 pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
-    let grid = use_editable_grid(state.get());
+    let grid = use_editable_grid(state.read_only(), state.write_only());
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
