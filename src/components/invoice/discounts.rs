@@ -1,8 +1,12 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::components::editable_grid::{
-    FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
+use crate::components::{
+    editable_grid::{
+        FormData, FormValidation, ItemData, ValidationResult, use_editable_grid,
+        validation::validators,
+    },
+    ui::AutocompleteItem,
 };
 
 // 1. Define enums for discount type and scope
@@ -48,6 +52,31 @@ pub struct DiscountItem {
     pub value: f64, // Amount for fixed, percentage for percentage
     pub scope: DiscountScope,
     pub is_default: bool,
+}
+
+impl AutocompleteItem for DiscountItem {
+    type Id = String;
+
+    fn id(&self) -> Self::Id {
+        self.id.clone()
+    }
+
+    fn search_text(&self) -> String {
+        format!("{} {}", self.name, self.description)
+    }
+
+    fn display_text(&self) -> String {
+        format!(
+            "{} ({}{})",
+            self.name,
+            self.value,
+            if self.discount_type == DiscountType::Percentage {
+                "%"
+            } else {
+                "$"
+            }
+        )
+    }
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]

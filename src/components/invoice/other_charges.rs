@@ -1,8 +1,12 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::components::editable_grid::{
-    FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
+use crate::components::{
+    editable_grid::{
+        FormData, FormValidation, ItemData, ValidationResult, use_editable_grid,
+        validation::validators,
+    },
+    ui::AutocompleteItem,
 };
 
 // 1. Define enums for charge scope
@@ -31,6 +35,22 @@ pub struct ChargeItem {
     pub amount: f64,
     pub scope: ChargeScope,
     pub is_default: bool,
+}
+
+impl AutocompleteItem for ChargeItem {
+    type Id = String;
+
+    fn id(&self) -> Self::Id {
+        self.id.clone()
+    }
+
+    fn search_text(&self) -> String {
+        format!("{} {}", self.name, self.description)
+    }
+
+    fn display_text(&self) -> String {
+        format!("{} ({}$)", self.name, self.amount)
+    }
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]

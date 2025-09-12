@@ -1,108 +1,86 @@
-use crate::components::ui::{
-    AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete, StaticDataSource,
+use super::{ChargeItem, DiscountItem, TaxItem};
+use crate::components::{
+    invoice::{DiscountType, TaxType},
+    ui::{
+        AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete,
+        StaticDataSource,
+    },
 };
 
 use leptos::prelude::*;
+use leptos_use::watch_debounced;
 use phosphor_leptos::{Icon, MAGNIFYING_GLASS, X};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct LineChargeItem {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub rate: Option<f64>,
+pub enum LineChargeItemKind {
+    Tax(TaxItem),
+    Discount(DiscountItem),
+    Charge(ChargeItem),
 }
 
-impl AutocompleteItem for LineChargeItem {
+impl AutocompleteItem for LineChargeItemKind {
     type Id = String;
 
     fn id(&self) -> Self::Id {
-        self.id.clone()
+        match self {
+            LineChargeItemKind::Tax(tax) => tax.id(),
+            LineChargeItemKind::Discount(discount) => discount.id(),
+            LineChargeItemKind::Charge(charge) => charge.id(),
+        }
     }
 
     fn search_text(&self) -> String {
-        format!("{} {}", self.name, self.description)
+        match self {
+            LineChargeItemKind::Tax(tax) => tax.search_text(),
+            LineChargeItemKind::Discount(discount) => discount.search_text(),
+            LineChargeItemKind::Charge(charge) => charge.search_text(),
+        }
     }
 
     fn display_text(&self) -> String {
-        if let Some(rate) = self.rate {
-            format!("{} ({}%)", self.name, rate)
-        } else {
-            self.name.clone()
+        match self {
+            LineChargeItemKind::Tax(tax) => tax.display_text(),
+            LineChargeItemKind::Discount(discount) => discount.display_text(),
+            LineChargeItemKind::Charge(charge) => charge.display_text(),
         }
     }
 }
 
 /// Example component using the autocomplete
 #[component]
-pub fn LineItemCharges() -> impl IntoView {
-    // Sample data
-    let tax_items = vec![
-        LineChargeItem {
-            id: "vat-10".to_string(),
-            name: "VAT".to_string(),
-            description: "Value Added Tax".to_string(),
-            rate: Some(10.0),
-        },
-        LineChargeItem {
-            id: "gst-18".to_string(),
-            name: "GST".to_string(),
-            description: "Goods and Services Tax".to_string(),
-            rate: Some(18.0),
-        },
-        LineChargeItem {
-            id: "sales-tax".to_string(),
-            name: "Sales Tax".to_string(),
-            description: "State Sales Tax".to_string(),
-            rate: Some(8.5),
-        },
-    ];
-
-    let discount_items = vec![
-        LineChargeItem {
-            id: "early-bird".to_string(),
-            name: "Early Bird Discount".to_string(),
-            description: "Early booking discount".to_string(),
-            rate: Some(15.0),
-        },
-        LineChargeItem {
-            id: "loyalty".to_string(),
-            name: "Loyalty Discount".to_string(),
-            description: "Customer loyalty discount".to_string(),
-            rate: Some(10.0),
-        },
-    ];
-
-    let other_charges = vec![
-        LineChargeItem {
-            id: "shipping".to_string(),
-            name: "Shipping Fee".to_string(),
-            description: "Standard shipping charges".to_string(),
-            rate: None,
-        },
-        LineChargeItem {
-            id: "handling".to_string(),
-            name: "Handling Fee".to_string(),
-            description: "Processing and handling".to_string(),
-            rate: None,
-        },
-    ];
-
+pub fn LineItemCharges(
+    taxes: ReadSignal<Vec<TaxItem>>,
+    discounts: ReadSignal<Vec<DiscountItem>>,
+    charges: ReadSignal<Vec<ChargeItem>>,
+    on_change: Callback<Vec<LineChargeItemKind>>,
+) -> impl IntoView {
     let groups = vec![
         AutocompleteGroup {
             id: "taxes".to_string(),
             name: "Taxes".to_string(),
-            items: tax_items,
+            items: taxes
+                .get()
+                .into_iter()
+                .map(LineChargeItemKind::Tax)
+                .collect::<Vec<_>>(),
         },
         AutocompleteGroup {
             id: "discounts".to_string(),
             name: "Discounts".to_string(),
-            items: discount_items,
+            items: discounts
+                .get()
+                .into_iter()
+                .map(LineChargeItemKind::Discount)
+                .collect::<Vec<_>>(),
         },
         AutocompleteGroup {
             id: "other".to_string(),
             name: "Other Charges".to_string(),
-            items: other_charges,
+            items: charges
+                .get()
+                .into_iter()
+                .map(LineChargeItemKind::Charge)
+                .collect::<Vec<_>>(),
         },
     ];
 
@@ -119,6 +97,13 @@ pub fn LineItemCharges() -> impl IntoView {
             data_source=data_source
             config=config
             render=move |props, actions| {
+                let _ = watch_debounced(
+                    move || props.selected_items.get(),
+                    move |new_val, _, _| { on_change.run(new_val.to_vec()) },
+                    300.0,
+                );
+                // log::info!("Signal changed: {}", new_val);
+
                 view! {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1" for="charges">
@@ -183,9 +168,9 @@ pub fn LineItemCharges() -> impl IntoView {
                                                                     }
                                                                 >
                                                                     <div class="font-medium">{item.display_text()}</div>
-                                                                    <div class="text-sm text-gray-500">
-                                                                        {item.description.clone()}
-                                                                    </div>
+                                                                // <div class="text-sm text-gray-500">
+                                                                // {item.description.clone()}
+                                                                // </div>
                                                                 </div>
                                                             }
                                                         }

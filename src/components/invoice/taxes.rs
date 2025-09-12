@@ -1,8 +1,12 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::components::editable_grid::{
-    FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
+use crate::components::{
+    editable_grid::{
+        FormData, FormValidation, ItemData, ValidationResult, use_editable_grid,
+        validation::validators,
+    },
+    ui::AutocompleteItem,
 };
 
 // 1. Define enum for tax type
@@ -29,6 +33,31 @@ pub struct TaxItem {
     pub name: String,
     pub tax_type: TaxType,
     pub rate: f64,
+}
+
+impl AutocompleteItem for TaxItem {
+    type Id = String;
+
+    fn id(&self) -> Self::Id {
+        self.id.clone()
+    }
+
+    fn search_text(&self) -> String {
+        self.name.clone()
+    }
+
+    fn display_text(&self) -> String {
+        format!(
+            "{} ({}{})",
+            self.name,
+            self.rate,
+            if self.tax_type == TaxType::Percentage {
+                "%"
+            } else {
+                "$"
+            }
+        )
+    }
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]

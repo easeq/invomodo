@@ -258,6 +258,10 @@ pub fn LineItems(
         update_form();
     };
 
+    let on_change_line_item_charges = Callback::new(move |selected_charges| {
+        log::info!("changed");
+    });
+
     // let handle_taxes_change = move |ev| {
     //     let value = event_target_value(&ev);
     //     let mut new_taxes = selected_taxes.get();
@@ -373,7 +377,12 @@ pub fn LineItems(
                             </div>
                         </div>
                         <div>
-                            <LineItemCharges />
+                            <LineItemCharges
+                                taxes=taxes
+                                discounts=discounts
+                                charges=charges
+                                on_change=on_change_line_item_charges
+                            />
                         </div>
                         <div class="flex justify-between items-center bg-gray-100 rounded-lg p-4">
                             <h2 class="text-lg font-semibold text-gray-800">Total</h2>
