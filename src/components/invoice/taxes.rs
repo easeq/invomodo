@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 use crate::components::{
     editable_grid::{
@@ -27,12 +28,26 @@ impl std::fmt::Display for TaxType {
 }
 
 // 2. Define your data structure for Tax
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TaxItem {
     pub id: String,
     pub name: String,
     pub tax_type: TaxType,
     pub rate: f64,
+}
+
+impl PartialEq for TaxItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for TaxItem {}
+
+impl Hash for TaxItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl AutocompleteItem for TaxItem {

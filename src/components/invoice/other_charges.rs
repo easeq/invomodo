@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 use crate::components::{
     editable_grid::{
@@ -27,7 +28,7 @@ impl std::fmt::Display for ChargeScope {
 }
 
 // 2. Define your data structure for Other Charges
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ChargeItem {
     pub id: String,
     pub name: String,
@@ -35,6 +36,20 @@ pub struct ChargeItem {
     pub amount: f64,
     pub scope: ChargeScope,
     pub is_default: bool,
+}
+
+impl PartialEq for ChargeItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for ChargeItem {}
+
+impl Hash for ChargeItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl AutocompleteItem for ChargeItem {

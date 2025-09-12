@@ -1,17 +1,14 @@
+use std::collections::HashSet;
+
 use super::{ChargeItem, DiscountItem, TaxItem};
-use crate::components::{
-    invoice::{DiscountType, TaxType},
-    ui::{
-        AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete,
-        StaticDataSource,
-    },
+use crate::components::ui::{
+    AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete, StaticDataSource,
 };
 
 use leptos::prelude::*;
-use leptos_use::watch_debounced;
 use phosphor_leptos::{Icon, MAGNIFYING_GLASS, X};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LineChargeItemKind {
     Tax(TaxItem),
     Discount(DiscountItem),
@@ -52,7 +49,7 @@ pub fn LineItemCharges(
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
-    on_change: Callback<Vec<LineChargeItemKind>>,
+    on_change: Callback<HashSet<LineChargeItemKind>>,
 ) -> impl IntoView {
     let groups = vec![
         AutocompleteGroup {
@@ -96,14 +93,8 @@ pub fn LineItemCharges(
         <GroupedAutocomplete
             data_source=data_source
             config=config
+            on_selection_change=on_change
             render=move |props, actions| {
-                let _ = watch_debounced(
-                    move || props.selected_items.get(),
-                    move |new_val, _, _| { on_change.run(new_val.to_vec()) },
-                    300.0,
-                );
-                // log::info!("Signal changed: {}", new_val);
-
                 view! {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1" for="charges">
@@ -115,7 +106,7 @@ pub fn LineItemCharges(
                                 id="charges"
                                 placeholder="Search for taxes, discounts, or other charges"
                                 type="text"
-                                prop:value=props.query
+                                prop:value=move || props.query.get()
                                 on:input=move |ev| {
                                     actions.set_query.set(event_target_value(&ev));
                                 }
@@ -168,9 +159,6 @@ pub fn LineItemCharges(
                                                                     }
                                                                 >
                                                                     <div class="font-medium">{item.display_text()}</div>
-                                                                // <div class="text-sm text-gray-500">
-                                                                // {item.description.clone()}
-                                                                // </div>
                                                                 </div>
                                                             }
                                                         }
@@ -196,14 +184,12 @@ pub fn LineItemCharges(
                                 each=move || props.selected_items.get()
                                 key=|item| item.id()
                                 children=move |item| {
-                                    let item_id = item.id();
-
                                     view! {
                                         <span class="bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center">
                                             {item.display_text()}
                                             <button
                                                 class="ml-2 text-indigo-800 hover:text-indigo-900"
-                                                on:click=move |_| actions.remove_item.run(item_id.clone())
+                                                on:click=move |_| actions.remove_item.run(item.clone())
                                             >
                                                 <span class="material-symbols-outlined text-sm">
                                                     <Icon icon=X />

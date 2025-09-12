@@ -1,10 +1,10 @@
 use leptos::prelude::*;
 use leptos_use::watch_debounced;
+use std::collections::HashSet;
 use std::hash::Hash;
-use std::rc::Rc;
 
 /// Trait for items that can be searched and displayed in the autocomplete
-pub trait AutocompleteItem: Clone + PartialEq {
+pub trait AutocompleteItem: Clone + PartialEq + Eq + Hash {
     type Id: Clone + PartialEq + Hash;
 
     fn id(&self) -> Self::Id;
@@ -136,9 +136,9 @@ impl<T: AutocompleteItem + 'static> AutocompleteDataSource<T> for SignalDataSour
 /// Main autocomplete component props
 #[derive(Clone)]
 pub struct AutocompleteRenderProps<T: AutocompleteItem> {
-    pub query: String,
+    pub query: ReadSignal<String>,
     pub results: ReadSignal<Vec<AutocompleteGroup<T>>>,
-    pub selected_items: ReadSignal<Vec<T>>,
+    pub selected_items: ReadSignal<HashSet<T>>,
     pub is_open: ReadSignal<bool>,
     pub is_loading: ReadSignal<bool>,
     pub highlighted_index: Option<(usize, usize)>, // (group_index, item_index)
@@ -149,7 +149,7 @@ pub struct AutocompleteRenderProps<T: AutocompleteItem> {
 pub struct AutocompleteActions<T: AutocompleteItem + 'static> {
     pub set_query: WriteSignal<String>,
     pub select_item: Callback<T>,
-    pub remove_item: Callback<T::Id>,
+    pub remove_item: Callback<T>,
     pub clear_all: Callback<()>,
     pub set_open: WriteSignal<bool>,
     pub set_highlighted: WriteSignal<Option<(usize, usize)>>,
@@ -168,10 +168,10 @@ pub fn GroupedAutocomplete<T, F, DS, R>(
     config: Option<AutocompleteConfig>,
     /// Initial selected items
     #[prop(optional)]
-    initial_selected: Option<Vec<T>>,
+    initial_selected: Option<HashSet<T>>,
     /// Callback when selection changes
     #[prop(optional)]
-    on_selection_change: Option<Rc<dyn Fn(Vec<T>)>>,
+    on_selection_change: Option<Callback<HashSet<T>>>,
 ) -> impl IntoView
 where
     T: AutocompleteItem + Send + Sync + 'static,
@@ -226,29 +226,28 @@ where
     Effect::new(move |_| {
         let items = selected_items.get();
         if let Some(callback) = &on_selection_change {
-            callback(items);
+            callback.run(items);
+            set_query.set("".to_string());
         }
     });
 
     let select_item = Callback::new(move |item: T| {
         set_selected_items.update(|items| {
-            if !items.iter().any(|existing| existing.id() == item.id()) {
-                items.push(item);
-            }
+            items.insert(item);
         });
         set_query.set(String::new());
         set_open.set(false);
         set_highlighted.set(None);
     });
 
-    let remove_item = Callback::new(move |item_id: T::Id| {
+    let remove_item = Callback::new(move |item: T| {
         set_selected_items.update(|items| {
-            items.retain(|item| item.id() != item_id);
+            items.remove(&item.clone());
         });
     });
 
     let clear_all = Callback::new(move |_| {
-        set_selected_items.set(Vec::new());
+        set_selected_items.set(HashSet::new());
     });
 
     let handle_key_down = Callback::new({
@@ -327,7 +326,7 @@ where
     });
 
     let render_props = AutocompleteRenderProps {
-        query: query.get(),
+        query,
         results,
         selected_items,
         is_open,

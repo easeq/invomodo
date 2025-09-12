@@ -19,19 +19,19 @@ impl InvoiceBuilderState {
         Self {
             taxes: RwSignal::new(vec![
                 TaxItem {
-                    id: "1".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "VAT".to_string(),
                     tax_type: TaxType::Percentage,
                     rate: 10.00,
                 },
                 TaxItem {
-                    id: "2".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Service Tax".to_string(),
                     tax_type: TaxType::Percentage,
                     rate: 5.00,
                 },
                 TaxItem {
-                    id: "3".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Flat Fee Tax".to_string(),
                     tax_type: TaxType::FixedAmount,
                     rate: 25.00,
@@ -39,7 +39,7 @@ impl InvoiceBuilderState {
             ]),
             discounts: RwSignal::new(vec![
                 DiscountItem {
-                    id: "1".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Early Bird Discount".to_string(),
                     description: "10% discount for early payment".to_string(),
                     discount_type: DiscountType::Percentage,
@@ -48,7 +48,7 @@ impl InvoiceBuilderState {
                     is_default: true,
                 },
                 DiscountItem {
-                    id: "2".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Bulk Order Discount".to_string(),
                     description: "$50 off for bulk orders".to_string(),
                     discount_type: DiscountType::FixedAmount,
@@ -57,7 +57,7 @@ impl InvoiceBuilderState {
                     is_default: false,
                 },
                 DiscountItem {
-                    id: "3".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Loyalty Discount".to_string(),
                     description: "20% off for loyal customers".to_string(),
                     discount_type: DiscountType::Percentage,
@@ -68,7 +68,7 @@ impl InvoiceBuilderState {
             ]),
             charges: RwSignal::new(vec![
                 ChargeItem {
-                    id: "1".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Shipping Fee".to_string(),
                     description: "Standard shipping charge".to_string(),
                     amount: 5.00,
@@ -76,7 +76,7 @@ impl InvoiceBuilderState {
                     is_default: true,
                 },
                 ChargeItem {
-                    id: "2".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Handling Fee".to_string(),
                     description: "Fee for handling fragile items".to_string(),
                     amount: 10.00,
@@ -84,7 +84,7 @@ impl InvoiceBuilderState {
                     is_default: false,
                 },
                 ChargeItem {
-                    id: "3".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Rush Order Fee".to_string(),
                     description: "Fee for expedited order processing".to_string(),
                     amount: 25.00,

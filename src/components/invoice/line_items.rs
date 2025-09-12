@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use super::*;
 use crate::components::editable_grid::{
@@ -26,9 +27,9 @@ pub struct LineItemForm {
     pub description: String,
     pub quantity: String,
     pub unit_price: String,
-    pub taxes: Vec<TaxItem>, // IDs of selected taxes
-    pub discounts: Vec<DiscountItem>,
-    pub charges: Vec<ChargeItem>,
+    pub taxes: HashSet<TaxItem>,
+    pub discounts: HashSet<DiscountItem>,
+    pub charges: HashSet<ChargeItem>,
 }
 
 // 2. Implement required traits
@@ -141,9 +142,9 @@ pub fn LineItems(
     let (description_value, set_description_value) = signal(String::new());
     let (quantity_value, set_quantity_value) = signal(String::new());
     let (unit_price_value, set_unit_price_value) = signal(String::new());
-    let (selected_taxes, set_selected_taxes) = signal(Vec::<TaxItem>::new());
-    let (selected_discounts, set_selected_discounts) = signal(Vec::<DiscountItem>::new());
-    let (selected_charges, set_selected_charges) = signal(Vec::<ChargeItem>::new());
+    let (selected_taxes, set_selected_taxes) = signal(HashSet::<TaxItem>::new());
+    let (selected_discounts, set_selected_discounts) = signal(HashSet::<DiscountItem>::new());
+    let (selected_charges, set_selected_charges) = signal(HashSet::<ChargeItem>::new());
 
     // Computed signal for line item total
     let total = Signal::derive({
@@ -153,34 +154,25 @@ pub fn LineItems(
             let unit_price = form.unit_price.parse::<f64>().unwrap_or(0.0);
             let mut base_total = quantity * unit_price;
 
-            let form_taxes = form.taxes;
-            let form_discounts = form.discounts;
-            let form_charges = form.charges;
-
             // Apply taxes
-            for form_tax in form_taxes {
-                if let Some(tax) = taxes.get().iter().find(|t| t.id == form_tax.id) {
-                    base_total += base_total * (tax.rate / 100.0);
+            for tax in selected_taxes.get() {
+                match tax.tax_type {
+                    TaxType::Percentage => base_total += base_total * (tax.rate / 100.0),
+                    TaxType::FixedAmount => base_total += tax.rate,
                 }
             }
 
             // Apply discounts
-            for form_discount in form_discounts {
-                if let Some(discount) = discounts.get().iter().find(|d| d.id == form_discount.id) {
-                    match discount.discount_type {
-                        DiscountType::Percentage => {
-                            base_total -= base_total * (discount.value / 100.0)
-                        }
-                        DiscountType::FixedAmount => base_total -= discount.value,
-                    }
+            for discount in selected_discounts.get() {
+                match discount.discount_type {
+                    DiscountType::Percentage => base_total -= base_total * (discount.value / 100.0),
+                    DiscountType::FixedAmount => base_total -= discount.value,
                 }
             }
 
             // Apply charges
-            for form_charge in form_charges {
-                if let Some(charge) = charges.get().iter().find(|c| c.id == form_charge.id) {
-                    base_total += charge.amount;
-                }
+            for charge in selected_charges.get() {
+                base_total += charge.amount;
             }
 
             base_total
@@ -222,9 +214,9 @@ pub fn LineItems(
             set_description_value.set(String::new());
             set_quantity_value.set(String::new());
             set_unit_price_value.set(String::new());
-            set_selected_taxes.set(Vec::new());
-            set_selected_discounts.set(Vec::new());
-            set_selected_charges.set(Vec::new());
+            set_selected_taxes.set(HashSet::new());
+            set_selected_discounts.set(HashSet::new());
+            set_selected_charges.set(HashSet::new());
         }
     };
 
@@ -258,45 +250,27 @@ pub fn LineItems(
         update_form();
     };
 
-    let on_change_line_item_charges = Callback::new(move |selected_charges| {
-        log::info!("changed");
+    let on_selection_change = Callback::new(move |selected_charges| {
+        for selected_charge in selected_charges {
+            match selected_charge {
+                LineChargeItemKind::Tax(v) => {
+                    set_selected_taxes.update(|items| {
+                        items.insert(v);
+                    });
+                }
+                LineChargeItemKind::Discount(v) => {
+                    set_selected_discounts.update(|items| {
+                        items.insert(v);
+                    });
+                }
+                LineChargeItemKind::Charge(v) => {
+                    set_selected_charges.update(|items| {
+                        items.insert(v);
+                    });
+                }
+            }
+        }
     });
-
-    // let handle_taxes_change = move |ev| {
-    //     let value = event_target_value(&ev);
-    //     let mut new_taxes = selected_taxes.get();
-    //     if new_taxes.contains(&value) {
-    //         new_taxes.retain(|x| x != &value);
-    //     } else {
-    //         new_taxes.push(value);
-    //     }
-    //     set_selected_taxes.set(new_taxes);
-    //     update_form();
-    // };
-    //
-    // let handle_discounts_change = move |ev| {
-    //     let value = event_target_value(&ev);
-    //     let mut new_discounts = selected_discounts.get();
-    //     if new_discounts.contains(&value) {
-    //         new_discounts.retain(|x| x != &value);
-    //     } else {
-    //         new_discounts.push(value);
-    //     }
-    //     set_selected_discounts.set(new_discounts);
-    //     update_form();
-    // };
-    //
-    // let handle_charges_change = move |ev| {
-    //     let value = event_target_value(&ev);
-    //     let mut new_charges = selected_charges.get();
-    //     if new_charges.contains(&value) {
-    //         new_charges.retain(|x| x != &value);
-    //     } else {
-    //         new_charges.push(value);
-    //     }
-    //     set_selected_charges.set(new_charges);
-    //     update_form();
-    // };
 
     view! {
         <div class="container mx-auto p-4">
@@ -381,7 +355,7 @@ pub fn LineItems(
                                 taxes=taxes
                                 discounts=discounts
                                 charges=charges
-                                on_change=on_change_line_item_charges
+                                on_change=on_selection_change
                             />
                         </div>
                         <div class="flex justify-between items-center bg-gray-100 rounded-lg p-4">
@@ -558,6 +532,7 @@ pub fn LineItems(
                                             each=move || grid.items.get()
                                             key=|item_state| item_state.data.id.clone()
                                             children=move |item_state| {
+                                                log::debug!("{:#?}", item_state);
                                                 let index = item_state.index;
                                                 let item = item_state.data.clone();
                                                 view! {

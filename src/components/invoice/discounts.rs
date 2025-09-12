@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 use crate::components::{
     editable_grid::{
@@ -43,7 +44,7 @@ impl std::fmt::Display for DiscountScope {
 }
 
 // 2. Define your data structure for Discounts
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscountItem {
     pub id: String,
     pub name: String,
@@ -52,6 +53,20 @@ pub struct DiscountItem {
     pub value: f64, // Amount for fixed, percentage for percentage
     pub scope: DiscountScope,
     pub is_default: bool,
+}
+
+impl PartialEq for DiscountItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for DiscountItem {}
+
+impl Hash for DiscountItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl AutocompleteItem for DiscountItem {
