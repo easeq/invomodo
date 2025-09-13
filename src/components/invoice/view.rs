@@ -67,6 +67,7 @@ pub fn InvoiceBuilder() -> impl IntoView {
                             taxes=invoice_builder_state.taxes.read_only()
                             discounts=invoice_builder_state.discounts.read_only()
                             charges=invoice_builder_state.charges.read_only()
+                            custom_fields=invoice_builder_state.custom_fields.read_only()
                         />
                     </TabPanel>
                     <TabPanel name="taxes".to_string()>

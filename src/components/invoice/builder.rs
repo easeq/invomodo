@@ -7,6 +7,7 @@ pub fn Builder(
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
+    custom_fields: ReadSignal<Vec<CustomFieldItem>>,
 ) -> impl IntoView {
     view! {
         <div class="container mx-auto p-4">
@@ -95,7 +96,13 @@ pub fn Builder(
                     </div>
                 </div>
             </div>
-            <LineItems state=line_items taxes=taxes discounts=discounts charges=charges />
+            <LineItems
+                state=line_items
+                taxes=taxes
+                discounts=discounts
+                charges=charges
+                custom_fields=custom_fields
+            />
         </div>
     }
 }

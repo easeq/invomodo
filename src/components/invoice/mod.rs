@@ -1,5 +1,6 @@
 mod builder;
 mod custom_fields;
+mod custom_fields_renderer;
 mod discounts;
 mod line_items;
 mod line_items_charges;
@@ -10,6 +11,7 @@ mod view;
 
 pub use builder::*;
 pub use custom_fields::*;
+pub use custom_fields_renderer::*;
 pub use discounts::*;
 pub use line_items::*;
 pub use line_items_charges::*;

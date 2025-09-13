@@ -179,6 +179,7 @@ pub fn LineItems(
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
+    custom_fields: ReadSignal<Vec<CustomFieldItem>>,
 ) -> impl IntoView {
     let grid = use_editable_grid(state.read_only(), state.write_only());
 
@@ -384,6 +385,8 @@ pub fn LineItems(
                                 on_remove=on_remove
                             />
                         </div>
+
+                        <CustomFieldsRenderer fields=custom_fields.get() />
 
                         <div class="flex flex-col bg-gray-100 rounded-lg p-2 min-w-[150px]">
                             <label class="form-label">"Total"</label>

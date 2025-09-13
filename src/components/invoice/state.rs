@@ -94,7 +94,7 @@ impl InvoiceBuilderState {
             ]),
             custom_fields: RwSignal::new(vec![
                 CustomFieldItem {
-                    id: "1".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Due Date".to_string(),
                     field_type: FieldType::Date,
                     category: FieldCategory::GlobalInvoice,
@@ -103,7 +103,7 @@ impl InvoiceBuilderState {
                     is_default: true,
                 },
                 CustomFieldItem {
-                    id: "2".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "PO Number".to_string(),
                     field_type: FieldType::Number,
                     category: FieldCategory::GlobalInvoice,
@@ -112,12 +112,21 @@ impl InvoiceBuilderState {
                     is_default: false,
                 },
                 CustomFieldItem {
-                    id: "3".to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                     name: "Client ID".to_string(),
                     field_type: FieldType::Text,
                     category: FieldCategory::ClientAddress,
                     default_value: "CUST-".to_string(),
                     required: false,
+                    is_default: false,
+                },
+                CustomFieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "SAC".to_string(),
+                    field_type: FieldType::Text,
+                    category: FieldCategory::LineItem,
+                    default_value: "998314".to_string(),
+                    required: true,
                     is_default: false,
                 },
             ]),
