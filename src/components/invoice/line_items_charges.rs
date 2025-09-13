@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::{ChargeItem, DiscountItem, TaxItem};
 use crate::components::ui::{
     AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete, StaticDataSource,
@@ -49,7 +47,8 @@ pub fn LineItemCharges(
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
-    on_change: Callback<HashSet<LineChargeItemKind>>,
+    on_select: Callback<LineChargeItemKind>,
+    on_remove: Callback<LineChargeItemKind>,
 ) -> impl IntoView {
     let groups = vec![
         AutocompleteGroup {
@@ -93,7 +92,8 @@ pub fn LineItemCharges(
         <GroupedAutocomplete
             data_source=data_source
             config=config
-            on_selection_change=on_change
+            on_select=on_select
+            on_remove=on_remove
             render=move |props, actions| {
                 view! {
                     <div>

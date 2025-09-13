@@ -169,9 +169,15 @@ pub fn GroupedAutocomplete<T, F, DS, R>(
     /// Initial selected items
     #[prop(optional)]
     initial_selected: Option<HashSet<T>>,
-    /// Callback when selection changes
+    /// Callback when selection changes add/remove/update
     #[prop(optional)]
-    on_selection_change: Option<Callback<HashSet<T>>>,
+    on_change: Option<Callback<HashSet<T>>>,
+    /// Callback when item is selected
+    #[prop(optional)]
+    on_select: Option<Callback<T>>,
+    /// Callback when item is removed
+    #[prop(optional)]
+    on_remove: Option<Callback<T>>,
 ) -> impl IntoView
 where
     T: AutocompleteItem + Send + Sync + 'static,
@@ -225,25 +231,34 @@ where
     // Handle selection changes
     Effect::new(move |_| {
         let items = selected_items.get();
-        if let Some(callback) = &on_selection_change {
+        if let Some(callback) = &on_change {
             callback.run(items);
-            set_query.set("".to_string());
         }
     });
 
     let select_item = Callback::new(move |item: T| {
         set_selected_items.update(|items| {
-            items.insert(item);
+            items.insert(item.clone());
         });
         set_query.set(String::new());
         set_open.set(false);
         set_highlighted.set(None);
+
+        if let Some(callback) = &on_select {
+            callback.run(item);
+            set_query.set("".to_string());
+        }
     });
 
     let remove_item = Callback::new(move |item: T| {
         set_selected_items.update(|items| {
             items.remove(&item.clone());
         });
+
+        if let Some(callback) = &on_remove {
+            callback.run(item);
+            set_query.set("".to_string());
+        }
     });
 
     let clear_all = Callback::new(move |_| {

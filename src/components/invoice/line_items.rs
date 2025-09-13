@@ -1,10 +1,15 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::HashSet;
 
 use super::*;
-use crate::components::editable_grid::{
-    FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
+use crate::components::{
+    editable_grid::{
+        FormData, FormValidation, ItemData, ValidationResult, use_editable_grid,
+        validation::validators,
+    },
+    ui::Badge,
 };
 
 // 1. Define your data structure for Line Items
@@ -15,9 +20,9 @@ pub struct LineItem {
     pub description: String,
     pub quantity: f64,
     pub unit_price: f64,
-    pub taxes: Vec<TaxItem>,
-    pub discounts: Vec<DiscountItem>,
-    pub charges: Vec<ChargeItem>,
+    pub taxes: HashSet<TaxItem>,
+    pub discounts: HashSet<DiscountItem>,
+    pub charges: HashSet<ChargeItem>,
     pub custom_fields: Vec<(String, String)>, // (field_id, value)
 }
 
@@ -43,9 +48,9 @@ impl FormData for LineItem {
             description: String::new(),
             quantity: 0.0,
             unit_price: 0.0,
-            taxes: Vec::new(),
-            discounts: Vec::new(),
-            charges: Vec::new(),
+            taxes: HashSet::new(),
+            discounts: HashSet::new(),
+            charges: HashSet::new(),
             custom_fields: Vec::new(),
         }
     }
@@ -56,9 +61,9 @@ impl FormData for LineItem {
             description: self.description.clone(),
             quantity: self.quantity.to_string(),
             unit_price: self.unit_price.to_string(),
-            taxes: self.taxes.iter().map(|t| t.clone()).collect(),
-            discounts: self.discounts.iter().map(|d| d.clone()).collect(),
-            charges: self.charges.iter().map(|c| c.clone()).collect(),
+            taxes: self.taxes.clone(),
+            discounts: self.discounts.clone(),
+            charges: self.charges.clone(),
         }
     }
 
@@ -71,9 +76,9 @@ impl FormData for LineItem {
             description: props.description.clone(),
             quantity: props.quantity.parse::<f64>().unwrap_or(0.0),
             unit_price: props.unit_price.parse::<f64>().unwrap_or(0.0),
-            taxes: Vec::new(),
-            discounts: Vec::new(),
-            charges: Vec::new(),
+            taxes: props.taxes.clone(),
+            discounts: props.discounts.clone(),
+            charges: props.charges.clone(),
             custom_fields: Vec::new(),
         }
     }
@@ -127,6 +132,50 @@ impl FormValidation for LineItemForm {
     }
 }
 
+fn calculate_total<T, D, C>(
+    quantity: f64,
+    unit_price: f64,
+    taxes: T,
+    discounts: D,
+    charges: C,
+) -> f64
+where
+    T: IntoIterator,
+    T::Item: std::borrow::Borrow<TaxItem>,
+    D: IntoIterator,
+    D::Item: std::borrow::Borrow<DiscountItem>,
+    C: IntoIterator,
+    C::Item: std::borrow::Borrow<ChargeItem>,
+{
+    let mut base_total = quantity * unit_price;
+
+    // Apply taxes
+    for tax in taxes {
+        let tax = tax.borrow();
+        match tax.tax_type {
+            TaxType::Percentage => base_total += base_total * (tax.rate / 100.0),
+            TaxType::FixedAmount => base_total += tax.rate,
+        }
+    }
+
+    // Apply discounts
+    for discount in discounts {
+        let discount = discount.borrow();
+        match discount.discount_type {
+            DiscountType::Percentage => base_total -= base_total * (discount.value / 100.0),
+            DiscountType::FixedAmount => base_total -= discount.value,
+        }
+    }
+
+    // Apply charges
+    for charge in charges {
+        let charge = charge.borrow();
+        base_total += charge.amount;
+    }
+
+    base_total
+}
+
 // 3. Line Items Management Component
 #[component]
 pub fn LineItems(
@@ -152,30 +201,14 @@ pub fn LineItems(
             let form = grid.form_state.get().current_form;
             let quantity = form.quantity.parse::<f64>().unwrap_or(0.0);
             let unit_price = form.unit_price.parse::<f64>().unwrap_or(0.0);
-            let mut base_total = quantity * unit_price;
 
-            // Apply taxes
-            for tax in selected_taxes.get() {
-                match tax.tax_type {
-                    TaxType::Percentage => base_total += base_total * (tax.rate / 100.0),
-                    TaxType::FixedAmount => base_total += tax.rate,
-                }
-            }
-
-            // Apply discounts
-            for discount in selected_discounts.get() {
-                match discount.discount_type {
-                    DiscountType::Percentage => base_total -= base_total * (discount.value / 100.0),
-                    DiscountType::FixedAmount => base_total -= discount.value,
-                }
-            }
-
-            // Apply charges
-            for charge in selected_charges.get() {
-                base_total += charge.amount;
-            }
-
-            base_total
+            calculate_total(
+                quantity,
+                unit_price,
+                selected_taxes.get(),
+                selected_discounts.get(),
+                selected_charges.get(),
+            )
         }
     });
 
@@ -250,25 +283,39 @@ pub fn LineItems(
         update_form();
     };
 
-    let on_selection_change = Callback::new(move |selected_charges| {
-        for selected_charge in selected_charges {
-            match selected_charge {
-                LineChargeItemKind::Tax(v) => {
-                    set_selected_taxes.update(|items| {
-                        items.insert(v);
-                    });
-                }
-                LineChargeItemKind::Discount(v) => {
-                    set_selected_discounts.update(|items| {
-                        items.insert(v);
-                    });
-                }
-                LineChargeItemKind::Charge(v) => {
-                    set_selected_charges.update(|items| {
-                        items.insert(v);
-                    });
-                }
-            }
+    let on_select = Callback::new(move |charge| match charge {
+        LineChargeItemKind::Tax(v) => {
+            set_selected_taxes.update(|items| {
+                items.insert(v);
+            });
+        }
+        LineChargeItemKind::Discount(v) => {
+            set_selected_discounts.update(|items| {
+                items.insert(v);
+            });
+        }
+        LineChargeItemKind::Charge(v) => {
+            set_selected_charges.update(|items| {
+                items.insert(v);
+            });
+        }
+    });
+
+    let on_remove = Callback::new(move |charge| match charge {
+        LineChargeItemKind::Tax(v) => {
+            set_selected_taxes.update(|items| {
+                items.remove(&v);
+            });
+        }
+        LineChargeItemKind::Discount(v) => {
+            set_selected_discounts.update(|items| {
+                items.remove(&v);
+            });
+        }
+        LineChargeItemKind::Charge(v) => {
+            set_selected_charges.update(|items| {
+                items.remove(&v);
+            });
         }
     });
 
@@ -355,7 +402,8 @@ pub fn LineItems(
                                 taxes=taxes
                                 discounts=discounts
                                 charges=charges
-                                on_change=on_selection_change
+                                on_select=on_select
+                                on_remove=on_remove
                             />
                         </div>
                         <div class="flex justify-between items-center bg-gray-100 rounded-lg p-4">
@@ -395,6 +443,13 @@ pub fn LineItems(
                                     children=move |item_state| {
                                         let index = item_state.index;
                                         let item = item_state.data.clone();
+                                        let total = calculate_total(
+                                            item.quantity,
+                                            item.unit_price,
+                                            &item.taxes,
+                                            &item.discounts,
+                                            &item.charges,
+                                        );
                                         view! {
                                             <div class="border rounded-lg p-4 bg-gray-50">
                                                 <div class="flex justify-between items-start mb-2">
@@ -410,7 +465,7 @@ pub fn LineItems(
                                                 </div>
                                                 <div class="text-sm text-gray-600 mt-2">
                                                     <p>"Qty: " {item.quantity}</p>
-                                                    <p>"Unit Price: " {format!("${:.2}", item.unit_price)}</p>
+                                                    <p>"Unit Price: " {format!("${total:.2}")}</p>
                                                 </div>
                                                 <div class="flex justify-between items-center mt-3 text-sm text-gray-600">
                                                     <div class="flex space-x-2">
@@ -418,25 +473,21 @@ pub fn LineItems(
                                                             each=move || item.taxes.clone()
                                                             key=|tax| tax.id.clone()
                                                             children=move |tax| {
-                                                                view! { <span class="badge badge-tax">{tax.name}</span> }
+                                                                view! { <Badge variant="destructive">{tax.name}</Badge> }
                                                             }
                                                         />
                                                         <For
                                                             each=move || item.discounts.clone()
                                                             key=|discount| discount.id.clone()
                                                             children=move |discount| {
-                                                                view! {
-                                                                    <span class="badge badge-discount">{discount.name}</span>
-                                                                }
+                                                                view! { <Badge variant="secondary">{discount.name}</Badge> }
                                                             }
                                                         />
                                                         <For
                                                             each=move || item.charges.clone()
                                                             key=|charge| charge.id.clone()
                                                             children=move |charge| {
-                                                                view! {
-                                                                    <span class="badge badge-charge">{charge.name}</span>
-                                                                }
+                                                                view! { <Badge>{charge.name}</Badge> }
                                                             }
                                                         />
                                                     </div>
@@ -532,9 +583,15 @@ pub fn LineItems(
                                             each=move || grid.items.get()
                                             key=|item_state| item_state.data.id.clone()
                                             children=move |item_state| {
-                                                log::debug!("{:#?}", item_state);
                                                 let index = item_state.index;
                                                 let item = item_state.data.clone();
+                                                let total = calculate_total(
+                                                    item.quantity,
+                                                    item.unit_price,
+                                                    &item.taxes,
+                                                    &item.discounts,
+                                                    &item.charges,
+                                                );
                                                 view! {
                                                     <tr>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -551,7 +608,7 @@ pub fn LineItems(
                                                                 each=move || item.taxes.clone()
                                                                 key=|tax| tax.id.clone()
                                                                 children=move |tax| {
-                                                                    view! { <span class="badge badge-tax">{tax.name}</span> }
+                                                                    view! { <Badge variant="destructive">{tax.name}</Badge> }
                                                                 }
                                                             />
                                                         </td>
@@ -560,9 +617,7 @@ pub fn LineItems(
                                                                 each=move || item.discounts.clone()
                                                                 key=|discount| discount.id.clone()
                                                                 children=move |discount| {
-                                                                    view! {
-                                                                        <span class="badge badge-discount">{discount.name}</span>
-                                                                    }
+                                                                    view! { <Badge variant="secondary">{discount.name}</Badge> }
                                                                 }
                                                             />
                                                         </td>
@@ -571,14 +626,12 @@ pub fn LineItems(
                                                                 each=move || item.charges.clone()
                                                                 key=|charge| charge.id.clone()
                                                                 children=move |charge| {
-                                                                    view! {
-                                                                        <span class="badge badge-charge">{charge.name}</span>
-                                                                    }
+                                                                    view! { <Badge>{charge.name}</Badge> }
                                                                 }
                                                             />
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                                            {format!("${:.2}", item.quantity * item.unit_price)}
+                                                            {format!("${total:.2}")}
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                             <button
