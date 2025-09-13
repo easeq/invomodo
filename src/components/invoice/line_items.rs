@@ -17,7 +17,6 @@ use crate::components::{
 pub struct LineItem {
     pub id: String,
     pub name: String,
-    pub description: String,
     pub quantity: f64,
     pub unit_price: f64,
     pub taxes: HashSet<TaxItem>,
@@ -29,7 +28,6 @@ pub struct LineItem {
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct LineItemForm {
     pub name: String,
-    pub description: String,
     pub quantity: String,
     pub unit_price: String,
     pub taxes: HashSet<TaxItem>,
@@ -45,7 +43,6 @@ impl FormData for LineItem {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::new(),
-            description: String::new(),
             quantity: 0.0,
             unit_price: 0.0,
             taxes: HashSet::new(),
@@ -58,7 +55,6 @@ impl FormData for LineItem {
     fn to_form_props(&self) -> Self::FormProps {
         LineItemForm {
             name: self.name.clone(),
-            description: self.description.clone(),
             quantity: self.quantity.to_string(),
             unit_price: self.unit_price.to_string(),
             taxes: self.taxes.clone(),
@@ -73,7 +69,6 @@ impl FormData for LineItem {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name: props.name.clone(),
-            description: props.description.clone(),
             quantity: props.quantity.parse::<f64>().unwrap_or(0.0),
             unit_price: props.unit_price.parse::<f64>().unwrap_or(0.0),
             taxes: props.taxes.clone(),
@@ -94,7 +89,8 @@ impl ItemData for LineItem {
     }
 
     fn get_subtitle(&self) -> Option<String> {
-        Some(self.description.clone())
+        // Some(self.description.clone())
+        None
     }
 
     fn get_metadata(&self) -> Vec<(String, String)> {
@@ -188,9 +184,10 @@ pub fn LineItems(
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
-    let (description_value, set_description_value) = signal(String::new());
     let (quantity_value, set_quantity_value) = signal(String::new());
     let (unit_price_value, set_unit_price_value) = signal(String::new());
+
+    let selected_items = RwSignal::new(HashSet::<LineChargeItemKind>::new());
     let (selected_taxes, set_selected_taxes) = signal(HashSet::<TaxItem>::new());
     let (selected_discounts, set_selected_discounts) = signal(HashSet::<DiscountItem>::new());
     let (selected_charges, set_selected_charges) = signal(HashSet::<ChargeItem>::new());
@@ -218,12 +215,10 @@ pub fn LineItems(
             let form_state = grid.form_state.get();
             let form = form_state.current_form;
             set_name_value.set(form.name);
-            set_description_value.set(form.description);
             set_quantity_value.set(form.quantity);
             set_unit_price_value.set(form.unit_price);
-            set_selected_taxes.set(form.taxes);
-            set_selected_discounts.set(form.discounts);
-            set_selected_charges.set(form.charges);
+            // TOOO: line item charges are currently saved using an effect in the render
+            // GroupedAutocomplete (on form edit). Find a better method
         }
     });
 
@@ -232,7 +227,6 @@ pub fn LineItems(
         ev.prevent_default();
         let form_data = LineItemForm {
             name: name_value.get(),
-            description: description_value.get(),
             quantity: quantity_value.get(),
             unit_price: unit_price_value.get(),
             taxes: selected_taxes.get(),
@@ -244,12 +238,12 @@ pub fn LineItems(
         if validation.is_valid {
             grid.actions.submit_form.run(form_data);
             set_name_value.set(String::new());
-            set_description_value.set(String::new());
             set_quantity_value.set(String::new());
             set_unit_price_value.set(String::new());
             set_selected_taxes.set(HashSet::new());
             set_selected_discounts.set(HashSet::new());
             set_selected_charges.set(HashSet::new());
+            selected_items.set(HashSet::new());
         }
     };
 
@@ -257,7 +251,6 @@ pub fn LineItems(
     let update_form = move || {
         grid.actions.update_form.run(LineItemForm {
             name: name_value.get(),
-            description: description_value.get(),
             quantity: quantity_value.get(),
             unit_price: unit_price_value.get(),
             taxes: selected_taxes.get(),
@@ -268,10 +261,6 @@ pub fn LineItems(
 
     let handle_name_input = move |ev| {
         set_name_value.set(event_target_value(&ev));
-        update_form();
-    };
-    let handle_description_input = move |ev| {
-        set_description_value.set(event_target_value(&ev));
         update_form();
     };
     let handle_quantity_input = move |ev| {
@@ -322,7 +311,7 @@ pub fn LineItems(
     view! {
         <div class="container mx-auto p-4">
             // Line Item Form Section
-            <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
+            <div class="bg-white p-8 rounded-xl shadow-lg w-full">
                 <h1 class="text-2xl font-bold text-gray-800 mb-6">
                     {move || {
                         if grid.form_state.get().is_editing {
@@ -332,14 +321,14 @@ pub fn LineItems(
                         }
                     }}
                 </h1>
-                <form on:submit=handle_submit>
-                    <div class="space-y-6">
-                        <div>
+                <form on:submit=handle_submit class="w-full">
+                    <div class="flex flex-wrap items-end gap-x-6 gap-y-4 w-full">
+                        <div class="flex flex-col flex-[2] min-w-[200px]">
                             <label class="form-label" for="item-name">
                                 "Item Name"
                             </label>
                             <input
-                                class="form-input"
+                                class="form-input w-full"
                                 id="item-name"
                                 name="item-name"
                                 type="text"
@@ -349,83 +338,74 @@ pub fn LineItems(
                                 required
                             />
                         </div>
-                        <div>
-                            <label class="form-label" for="item-description">
-                                "Description"
+
+                        <div class="flex flex-col w-24">
+                            <label class="form-label" for="item-quantity">
+                                "Qty"
                             </label>
-                            <textarea
-                                class="form-input"
-                                id="item-description"
-                                name="item-description"
-                                prop:value=move || description_value.get()
-                                on:input=handle_description_input
-                                rows="2"
-                                placeholder="Optional description of the service or product"
-                            ></textarea>
+                            <input
+                                class="form-input w-full"
+                                id="item-quantity"
+                                name="item-quantity"
+                                type="number"
+                                step="any"
+                                min="0"
+                                prop:value=move || quantity_value.get()
+                                on:input=handle_quantity_input
+                                required
+                            />
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div>
-                                <label class="form-label" for="item-quantity">
-                                    "Quantity"
-                                </label>
-                                <input
-                                    class="form-input"
-                                    id="item-quantity"
-                                    name="item-quantity"
-                                    type="number"
-                                    step="any"
-                                    min="0"
-                                    prop:value=move || quantity_value.get()
-                                    on:input=handle_quantity_input
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label class="form-label" for="unit-price">
-                                    "Unit Price"
-                                </label>
-                                <input
-                                    class="form-input"
-                                    id="unit-price"
-                                    name="unit-price"
-                                    type="number"
-                                    step="any"
-                                    min="0"
-                                    prop:value=move || unit_price_value.get()
-                                    on:input=handle_unit_price_input
-                                    required
-                                />
-                            </div>
+
+                        <div class="flex flex-col w-28">
+                            <label class="form-label" for="unit-price">
+                                "Unit Price"
+                            </label>
+                            <input
+                                class="form-input w-full"
+                                id="unit-price"
+                                name="unit-price"
+                                type="number"
+                                step="any"
+                                min="0"
+                                prop:value=move || unit_price_value.get()
+                                on:input=handle_unit_price_input
+                                required
+                            />
                         </div>
-                        <div>
+
+                        <div class="flex flex-col flex-[2] min-w-[200px]">
                             <LineItemCharges
+                                form_state=grid.form_state
                                 taxes=taxes
                                 discounts=discounts
                                 charges=charges
+                                selected_items=selected_items
                                 on_select=on_select
                                 on_remove=on_remove
                             />
                         </div>
-                        <div class="flex justify-between items-center bg-gray-100 rounded-lg p-4">
-                            <h2 class="text-lg font-semibold text-gray-800">Total</h2>
-                            <p class="text-3xl font-bold text-gray-800">
+
+                        <div class="flex flex-col bg-gray-100 rounded-lg p-2 min-w-[150px]">
+                            <label class="form-label">"Total"</label>
+                            <p class="text-xl font-bold text-gray-800">
                                 {move || format!("${:.2}", total.get())}
                             </p>
                         </div>
-                    </div>
-                    <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end">
-                        <button
-                            class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                            type="submit"
-                        >
-                            {move || {
-                                if grid.form_state.get().is_editing {
-                                    "Update Item"
-                                } else {
-                                    "Add Item"
-                                }
-                            }}
-                        </button>
+
+                        <div class="flex flex-col justify-end">
+                            <button
+                                class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors mt-auto"
+                                type="submit"
+                            >
+                                {move || {
+                                    if grid.form_state.get().is_editing {
+                                        "Update Item"
+                                    } else {
+                                        "Add Item"
+                                    }
+                                }}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -455,9 +435,8 @@ pub fn LineItems(
                                                 <div class="flex justify-between items-start mb-2">
                                                     <div>
                                                         <h3 class="font-semibold text-lg">{item.name.clone()}</h3>
-                                                        <p class="text-gray-500 text-sm">
-                                                            {item.description.clone()}
-                                                        </p>
+                                                        // {item.description.clone()}
+                                                        <p class="text-gray-500 text-sm"></p>
                                                     </div>
                                                     <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                                                         {format!("${:.2}", item.quantity * item.unit_price)}

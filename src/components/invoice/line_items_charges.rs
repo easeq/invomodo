@@ -1,7 +1,12 @@
-use super::{ChargeItem, DiscountItem, TaxItem};
-use crate::components::ui::{
-    AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete, StaticDataSource,
+use super::{ChargeItem, DiscountItem, LineItemForm, TaxItem};
+use crate::components::{
+    editable_grid::FormState,
+    ui::{
+        AutocompleteConfig, AutocompleteGroup, AutocompleteItem, GroupedAutocomplete,
+        StaticDataSource,
+    },
 };
+use std::collections::HashSet;
 
 use leptos::prelude::*;
 use phosphor_leptos::{Icon, MAGNIFYING_GLASS, X};
@@ -44,6 +49,8 @@ impl AutocompleteItem for LineChargeItemKind {
 /// Example component using the autocomplete
 #[component]
 pub fn LineItemCharges(
+    form_state: Memo<FormState<LineItemForm>>,
+    selected_items: RwSignal<HashSet<LineChargeItemKind>>,
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
@@ -92,9 +99,26 @@ pub fn LineItemCharges(
         <GroupedAutocomplete
             data_source=data_source
             config=config
+            selected_items=selected_items
             on_select=on_select
             on_remove=on_remove
             render=move |props, actions| {
+                Effect::new({
+                    move |_| {
+                        let form_state = form_state.get();
+                        let form = form_state.current_form;
+                        for tax in form.taxes {
+                            actions.select_item.run(LineChargeItemKind::Tax(tax));
+                        }
+                        for discount in form.discounts {
+                            actions.select_item.run(LineChargeItemKind::Discount(discount));
+                        }
+                        for charge in form.charges {
+                            actions.select_item.run(LineChargeItemKind::Charge(charge));
+                        }
+                    }
+                });
+
                 view! {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1" for="charges">

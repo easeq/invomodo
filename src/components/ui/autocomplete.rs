@@ -163,6 +163,9 @@ pub fn GroupedAutocomplete<T, F, DS, R>(
     data_source: DS,
     /// Render function that receives props and actions
     render: F,
+    /// Shared signal for selected items
+    #[prop(optional)]
+    selected_items: Option<RwSignal<HashSet<T>>>,
     /// Configuration options
     #[prop(optional)]
     config: Option<AutocompleteConfig>,
@@ -186,14 +189,14 @@ where
     R: IntoView + 'static,
 {
     let config = config.unwrap_or_default();
-    let initial_selected = initial_selected.unwrap_or_default();
 
     let (query, set_query) = signal(String::new());
-    let (selected_items, set_selected_items) = signal(initial_selected);
     let (is_open, set_open) = signal(false);
     let (is_loading, set_loading) = signal(false);
     let (highlighted_index, set_highlighted) = signal(None::<(usize, usize)>);
     let (results, set_results) = signal(Vec::<AutocompleteGroup<T>>::new());
+
+    let selected_items = selected_items.unwrap_or_else(|| RwSignal::new(HashSet::new()));
 
     // Debounced search effect
     let _ = watch_debounced(
@@ -237,7 +240,7 @@ where
     });
 
     let select_item = Callback::new(move |item: T| {
-        set_selected_items.update(|items| {
+        selected_items.update(|items| {
             items.insert(item.clone());
         });
         set_query.set(String::new());
@@ -251,7 +254,7 @@ where
     });
 
     let remove_item = Callback::new(move |item: T| {
-        set_selected_items.update(|items| {
+        selected_items.update(|items| {
             items.remove(&item.clone());
         });
 
@@ -262,7 +265,7 @@ where
     });
 
     let clear_all = Callback::new(move |_| {
-        set_selected_items.set(HashSet::new());
+        selected_items.set(HashSet::new());
     });
 
     let handle_key_down = Callback::new({
@@ -343,7 +346,7 @@ where
     let render_props = AutocompleteRenderProps {
         query,
         results,
-        selected_items,
+        selected_items: selected_items.read_only(),
         is_open,
         is_loading,
         highlighted_index: highlighted_index.get(),
