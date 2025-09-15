@@ -56,9 +56,28 @@ impl std::fmt::Display for FieldType {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub enum FieldValue {
+    Text(String),
+    Number(f64),
+    Email(String),
+    Phone(String),
+    Dropdown(String),
+    Date(String), // or `chrono::NaiveDate` if you're using chrono
+    Checkbox(bool),
+    Textarea(String),
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct FieldItemValue {
+    pub id: String,
+    pub label: String,
+    pub value: FieldValue,
+}
+
 // 2. Define your data structure for Custom Fields
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct CustomFieldItem {
+pub struct FieldItem {
     pub id: String,
     pub name: String,
     pub field_type: FieldType,
@@ -69,7 +88,7 @@ pub struct CustomFieldItem {
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]
-pub struct CustomFieldForm {
+pub struct FieldForm {
     pub name: String,
     pub field_type: FieldType,
     pub category: FieldCategory,
@@ -79,8 +98,8 @@ pub struct CustomFieldForm {
 }
 
 // 3. Implement required traits
-impl FormData for CustomFieldItem {
-    type FormProps = CustomFieldForm;
+impl FormData for FieldItem {
+    type FormProps = FieldForm;
 
     fn default() -> Self {
         Self {
@@ -95,7 +114,7 @@ impl FormData for CustomFieldItem {
     }
 
     fn to_form_props(&self) -> Self::FormProps {
-        CustomFieldForm {
+        FieldForm {
             name: self.name.clone(),
             field_type: self.field_type.clone(),
             category: self.category.clone(),
@@ -118,7 +137,7 @@ impl FormData for CustomFieldItem {
     }
 }
 
-impl ItemData for CustomFieldItem {
+impl ItemData for FieldItem {
     fn get_id(&self) -> String {
         self.id.clone()
     }
@@ -141,7 +160,7 @@ impl ItemData for CustomFieldItem {
     }
 }
 
-impl FormValidation for CustomFieldForm {
+impl FormValidation for FieldForm {
     fn validate(&self) -> ValidationResult {
         let results = vec![
             validators::required(&self.name, "Field Name"),
@@ -155,7 +174,7 @@ impl FormValidation for CustomFieldForm {
 
 // 4. Custom Field Management Component
 #[component]
-pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
+pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
     let grid = use_editable_grid(state.read_only(), state.write_only());
 
     // Form field signals
@@ -184,7 +203,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
     let handle_submit = move |ev: web_sys::SubmitEvent| {
         ev.prevent_default();
 
-        let form_data = CustomFieldForm {
+        let form_data = FieldForm {
             name: name_value.get(),
             field_type: field_type_value.get(),
             category: category_value.get(),
@@ -209,7 +228,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
     let handle_name_input = move |ev| {
         let value = event_target_value(&ev);
         set_name_value.set(value.clone());
-        grid.actions.update_form.run(CustomFieldForm {
+        grid.actions.update_form.run(FieldForm {
             name: value,
             field_type: field_type_value.get(),
             category: category_value.get(),
@@ -232,7 +251,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
             _ => FieldType::Text,
         };
         set_field_type_value.set(field_type.clone());
-        grid.actions.update_form.run(CustomFieldForm {
+        grid.actions.update_form.run(FieldForm {
             name: name_value.get(),
             field_type,
             category: category_value.get(),
@@ -252,7 +271,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
             _ => FieldCategory::GlobalInvoice,
         };
         set_category_value.set(category.clone());
-        grid.actions.update_form.run(CustomFieldForm {
+        grid.actions.update_form.run(FieldForm {
             name: name_value.get(),
             field_type: field_type_value.get(),
             category,
@@ -265,7 +284,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
     let handle_default_value_input = move |ev| {
         let value = event_target_value(&ev);
         set_default_value.set(value.clone());
-        grid.actions.update_form.run(CustomFieldForm {
+        grid.actions.update_form.run(FieldForm {
             name: name_value.get(),
             field_type: field_type_value.get(),
             category: category_value.get(),
@@ -278,7 +297,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
     let handle_required_change = move |ev| {
         let checked = event_target_checked(&ev);
         set_required_value.set(checked);
-        grid.actions.update_form.run(CustomFieldForm {
+        grid.actions.update_form.run(FieldForm {
             name: name_value.get(),
             field_type: field_type_value.get(),
             category: category_value.get(),
@@ -291,7 +310,7 @@ pub fn CustomFields(state: RwSignal<Vec<CustomFieldItem>>) -> impl IntoView {
     let handle_is_default_change = move |ev| {
         let checked = event_target_checked(&ev);
         set_is_default_value.set(checked);
-        grid.actions.update_form.run(CustomFieldForm {
+        grid.actions.update_form.run(FieldForm {
             name: name_value.get(),
             field_type: field_type_value.get(),
             category: category_value.get(),

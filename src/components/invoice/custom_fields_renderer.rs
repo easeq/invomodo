@@ -1,8 +1,14 @@
-use super::{CustomFieldItem, FieldType};
+use crate::components::invoice::FieldCategory;
+use std::collections::HashMap;
+
+use super::*;
 use leptos::prelude::*;
 
 #[component]
-pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl IntoView {
+pub fn FieldsRenderer(
+    #[prop()] fields: ReadSignal<Vec<FieldItem>>,
+    #[prop()] form_values: RwSignal<HashMap<String, FieldItemValue>>,
+) -> impl IntoView {
     let is_open = RwSignal::new(false);
 
     view! {
@@ -21,7 +27,9 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
             >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {fields
+                        .get()
                         .into_iter()
+                        .filter(|f| f.category == FieldCategory::LineItem)
                         .map(|field| {
                             let field_id = field.id.clone();
                             let field_label = field.name.clone();
@@ -45,13 +53,43 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
                                                     class="form-input"
                                                     id=field_id.clone()
                                                     name=field_id.clone()
-                                                    type=match field.field_type {
-                                                        FieldType::Email => "email",
-                                                        FieldType::Phone => "tel",
-                                                        _ => "text",
+                                                    type="text"
+                                                    value={
+                                                        let field_id = field_id.clone();
+                                                        move || match form_values
+                                                            .get()
+                                                            .get(&field_id)
+                                                            .map(|f| &f.value)
+                                                        {
+                                                            Some(
+                                                                FieldValue::Text(v)
+                                                                | FieldValue::Email(v)
+                                                                | FieldValue::Phone(v)
+                                                                | FieldValue::Textarea(v),
+                                                            ) => v.clone(),
+                                                            _ => "".to_string(),
+                                                        }
                                                     }
-                                                    placeholder=field.default_value.clone()
-                                                    required=required
+                                                    on:input={
+                                                        let field_id = field_id.clone();
+                                                        move |ev| {
+                                                            let new_val = event_target_value(&ev);
+                                                            form_values
+                                                                .update(|map| {
+                                                                    if let Some(field_val) = map.get_mut(&field_id) {
+                                                                        field_val.value = match &field_val.value {
+                                                                            FieldValue::Text(_) => FieldValue::Text(new_val.clone()),
+                                                                            FieldValue::Email(_) => FieldValue::Email(new_val.clone()),
+                                                                            FieldValue::Phone(_) => FieldValue::Phone(new_val.clone()),
+                                                                            FieldValue::Textarea(_) => {
+                                                                                FieldValue::Textarea(new_val.clone())
+                                                                            }
+                                                                            _ => field_val.value.clone(),
+                                                                        };
+                                                                    }
+                                                                });
+                                                        }
+                                                    }
                                                 />
                                             }
                                                 .into_any()
@@ -61,12 +99,32 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
                                             view! {
                                                 <input
                                                     class="form-input"
-                                                    id=field_id.clone()
-                                                    name=field_id.clone()
                                                     type="number"
-                                                    step="any"
-                                                    placeholder=field.default_value.clone()
-                                                    required=required
+                                                    value={
+                                                        let field_id = field_id.clone();
+                                                        move || {
+                                                            match form_values.get().get(&field_id) {
+                                                                Some(
+                                                                    FieldItemValue { value: FieldValue::Number(n), .. },
+                                                                ) => n.to_string(),
+                                                                _ => "".to_string(),
+                                                            }
+                                                        }
+                                                    }
+                                                    on:input={
+                                                        let field_id = field_id.clone();
+                                                        move |ev| {
+                                                            let val = event_target_value(&ev)
+                                                                .parse::<f64>()
+                                                                .unwrap_or(0.0);
+                                                            form_values
+                                                                .update(|map| {
+                                                                    if let Some(field) = map.get_mut(&field_id) {
+                                                                        field.value = FieldValue::Number(val);
+                                                                    }
+                                                                });
+                                                        }
+                                                    }
                                                 />
                                             }
                                                 .into_any()
@@ -76,11 +134,30 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
                                             view! {
                                                 <select
                                                     class="form-select"
-                                                    id=field_id.clone()
-                                                    name=field_id.clone()
-                                                    required=required
+                                                    prop:value={
+                                                        let field_id = field_id.clone();
+                                                        move || {
+                                                            match form_values.get().get(&field_id) {
+                                                                Some(
+                                                                    FieldItemValue { value: FieldValue::Dropdown(v), .. },
+                                                                ) => v.clone(),
+                                                                _ => "".to_string(),
+                                                            }
+                                                        }
+                                                    }
+                                                    on:change={
+                                                        let field_id = field_id.clone();
+                                                        move |ev| {
+                                                            let val = event_target_value(&ev);
+                                                            form_values
+                                                                .update(|map| {
+                                                                    if let Some(field) = map.get_mut(&field_id) {
+                                                                        field.value = FieldValue::Dropdown(val);
+                                                                    }
+                                                                });
+                                                        }
+                                                    }
                                                 >
-                                                    // You can customize this to load real options
                                                     <option value="">"Select an option"</option>
                                                     <option value="Option1">"Option 1"</option>
                                                     <option value="Option2">"Option 2"</option>
@@ -92,11 +169,30 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
 
                                             view! {
                                                 <input
-                                                    class="form-input"
-                                                    id=field_id.clone()
-                                                    name=field_id.clone()
                                                     type="date"
-                                                    required=required
+                                                    value={
+                                                        let field_id = field_id.clone();
+                                                        move || {
+                                                            match form_values.get().get(&field_id) {
+                                                                Some(FieldItemValue { value: FieldValue::Date(d), .. }) => {
+                                                                    d.clone()
+                                                                }
+                                                                _ => "".to_string(),
+                                                            }
+                                                        }
+                                                    }
+                                                    on:input={
+                                                        let field_id = field_id.clone();
+                                                        move |ev| {
+                                                            let val = event_target_value(&ev);
+                                                            form_values
+                                                                .update(|map| {
+                                                                    if let Some(field) = map.get_mut(&field_id) {
+                                                                        field.value = FieldValue::Date(val);
+                                                                    }
+                                                                });
+                                                        }
+                                                    }
                                                 />
                                             }
                                                 .into_any()
@@ -105,10 +201,30 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
 
                                             view! {
                                                 <input
-                                                    class="form-checkbox h-5 w-5"
-                                                    id=field_id.clone()
-                                                    name=field_id.clone()
                                                     type="checkbox"
+                                                    checked={
+                                                        let field_id = field_id.clone();
+                                                        move || {
+                                                            match form_values.get().get(&field_id) {
+                                                                Some(
+                                                                    FieldItemValue { value: FieldValue::Checkbox(v), .. },
+                                                                ) => *v,
+                                                                _ => false,
+                                                            }
+                                                        }
+                                                    }
+                                                    on:change={
+                                                        let field_id = field_id.clone();
+                                                        move |ev| {
+                                                            let checked = event_target_checked(&ev);
+                                                            form_values
+                                                                .update(|map| {
+                                                                    if let Some(field) = map.get_mut(&field_id) {
+                                                                        field.value = FieldValue::Checkbox(checked);
+                                                                    }
+                                                                });
+                                                        }
+                                                    }
                                                 />
                                             }
                                                 .into_any()
@@ -120,9 +236,10 @@ pub fn CustomFieldsRenderer(#[prop()] fields: Vec<CustomFieldItem>) -> impl Into
                                                     class="form-textarea"
                                                     id=field_id.clone()
                                                     name=field_id.clone()
-                                                    placeholder=field.default_value.clone()
                                                     required=required
-                                                ></textarea>
+                                                >
+                                                    {field.default_value.clone()}
+                                                </textarea>
                                             }
                                                 .into_any()
                                         }

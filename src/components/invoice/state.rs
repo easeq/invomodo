@@ -7,7 +7,7 @@ pub struct InvoiceBuilderState {
     pub taxes: RwSignal<Vec<TaxItem>>,
     pub discounts: RwSignal<Vec<DiscountItem>>,
     pub charges: RwSignal<Vec<ChargeItem>>,
-    pub custom_fields: RwSignal<Vec<CustomFieldItem>>,
+    pub custom_fields: RwSignal<Vec<FieldItem>>,
     pub line_items: RwSignal<Vec<LineItem>>,
     // pub global_discounts: Vec<String>, // Applied discount IDs
     // pub global_charges: Vec<String>,   // Applied charge IDs
@@ -93,7 +93,7 @@ impl InvoiceBuilderState {
                 },
             ]),
             custom_fields: RwSignal::new(vec![
-                CustomFieldItem {
+                FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "Due Date".to_string(),
                     field_type: FieldType::Date,
@@ -102,7 +102,7 @@ impl InvoiceBuilderState {
                     required: true,
                     is_default: true,
                 },
-                CustomFieldItem {
+                FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "PO Number".to_string(),
                     field_type: FieldType::Number,
@@ -111,7 +111,7 @@ impl InvoiceBuilderState {
                     required: false,
                     is_default: false,
                 },
-                CustomFieldItem {
+                FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "Client ID".to_string(),
                     field_type: FieldType::Text,
@@ -120,7 +120,7 @@ impl InvoiceBuilderState {
                     required: false,
                     is_default: false,
                 },
-                CustomFieldItem {
+                FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "SAC".to_string(),
                     field_type: FieldType::Text,

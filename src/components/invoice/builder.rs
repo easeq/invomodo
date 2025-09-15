@@ -7,7 +7,7 @@ pub fn Builder(
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
-    custom_fields: ReadSignal<Vec<CustomFieldItem>>,
+    custom_fields: ReadSignal<Vec<FieldItem>>,
 ) -> impl IntoView {
     view! {
         <div class="container mx-auto p-4">

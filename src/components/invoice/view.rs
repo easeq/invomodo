@@ -80,7 +80,7 @@ pub fn InvoiceBuilder() -> impl IntoView {
                         <OtherCharges state=invoice_builder_state.charges />
                     </TabPanel>
                     <TabPanel name="custom_fields".to_string()>
-                        <CustomFields state=invoice_builder_state.custom_fields />
+                        <Fields state=invoice_builder_state.custom_fields />
                     </TabPanel>
                     <TabPanel name="preview".to_string()>
                         <section class="p-6 text-gray-700">preview</section>

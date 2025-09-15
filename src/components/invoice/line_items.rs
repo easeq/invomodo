@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
 use std::collections::HashSet;
+use std::{borrow::Borrow, collections::HashMap};
 
 use super::*;
 use crate::components::{
@@ -22,7 +22,7 @@ pub struct LineItem {
     pub taxes: HashSet<TaxItem>,
     pub discounts: HashSet<DiscountItem>,
     pub charges: HashSet<ChargeItem>,
-    pub custom_fields: Vec<(String, String)>, // (field_id, value)
+    pub custom_fields: HashMap<String, FieldItemValue>,
 }
 
 #[derive(Clone, PartialEq, Debug, Default)]
@@ -33,6 +33,7 @@ pub struct LineItemForm {
     pub taxes: HashSet<TaxItem>,
     pub discounts: HashSet<DiscountItem>,
     pub charges: HashSet<ChargeItem>,
+    pub custom_fields: HashMap<String, FieldItemValue>,
 }
 
 // 2. Implement required traits
@@ -48,7 +49,7 @@ impl FormData for LineItem {
             taxes: HashSet::new(),
             discounts: HashSet::new(),
             charges: HashSet::new(),
-            custom_fields: Vec::new(),
+            custom_fields: HashMap::new(),
         }
     }
 
@@ -60,6 +61,7 @@ impl FormData for LineItem {
             taxes: self.taxes.clone(),
             discounts: self.discounts.clone(),
             charges: self.charges.clone(),
+            custom_fields: self.custom_fields.clone(),
         }
     }
 
@@ -74,7 +76,7 @@ impl FormData for LineItem {
             taxes: props.taxes.clone(),
             discounts: props.discounts.clone(),
             charges: props.charges.clone(),
-            custom_fields: Vec::new(),
+            custom_fields: props.custom_fields.clone(),
         }
     }
 }
@@ -172,6 +174,40 @@ where
     base_total
 }
 
+fn initialize_field_values(fields: &[FieldItem]) -> HashMap<String, FieldItemValue> {
+    fields
+        .iter()
+        .filter(|f| f.category == FieldCategory::LineItem)
+        .map(|f| {
+            let value = match f.field_type {
+                FieldType::Number => {
+                    let num = f.default_value.parse::<f64>().unwrap_or(0.0);
+                    FieldValue::Number(num)
+                }
+                FieldType::Checkbox => {
+                    let val = f.default_value.to_lowercase() == "true";
+                    FieldValue::Checkbox(val)
+                }
+                FieldType::Date => FieldValue::Date(f.default_value.clone()),
+                FieldType::Dropdown => FieldValue::Dropdown(f.default_value.clone()),
+                FieldType::Textarea => FieldValue::Textarea(f.default_value.clone()),
+                FieldType::Email => FieldValue::Email(f.default_value.clone()),
+                FieldType::Phone => FieldValue::Phone(f.default_value.clone()),
+                FieldType::Text => FieldValue::Text(f.default_value.clone()),
+            };
+
+            (
+                f.id.clone(),
+                FieldItemValue {
+                    id: f.id.clone(),
+                    label: f.name.clone(),
+                    value,
+                },
+            )
+        })
+        .collect()
+}
+
 // 3. Line Items Management Component
 #[component]
 pub fn LineItems(
@@ -179,7 +215,7 @@ pub fn LineItems(
     taxes: ReadSignal<Vec<TaxItem>>,
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
-    custom_fields: ReadSignal<Vec<CustomFieldItem>>,
+    custom_fields: ReadSignal<Vec<FieldItem>>,
 ) -> impl IntoView {
     let grid = use_editable_grid(state.read_only(), state.write_only());
 
@@ -192,6 +228,10 @@ pub fn LineItems(
     let (selected_taxes, set_selected_taxes) = signal(HashSet::<TaxItem>::new());
     let (selected_discounts, set_selected_discounts) = signal(HashSet::<DiscountItem>::new());
     let (selected_charges, set_selected_charges) = signal(HashSet::<ChargeItem>::new());
+
+    let initial_custom_field_values =
+        Memo::new(move |_| initialize_field_values(&custom_fields.get()));
+    let custom_field_values = RwSignal::new(initial_custom_field_values.get());
 
     // Computed signal for line item total
     let total = Signal::derive({
@@ -233,6 +273,7 @@ pub fn LineItems(
             taxes: selected_taxes.get(),
             discounts: selected_discounts.get(),
             charges: selected_charges.get(),
+            custom_fields: custom_field_values.get(),
         };
 
         let validation = form_data.validate();
@@ -245,6 +286,7 @@ pub fn LineItems(
             set_selected_discounts.set(HashSet::new());
             set_selected_charges.set(HashSet::new());
             selected_items.set(HashSet::new());
+            custom_field_values.set(initial_custom_field_values.get());
         }
     };
 
@@ -257,6 +299,7 @@ pub fn LineItems(
             taxes: selected_taxes.get(),
             discounts: selected_discounts.get(),
             charges: selected_charges.get(),
+            custom_fields: custom_field_values.get(),
         });
     };
 
@@ -386,7 +429,7 @@ pub fn LineItems(
                             />
                         </div>
 
-                        <CustomFieldsRenderer fields=custom_fields.get() />
+                        <FieldsRenderer fields=custom_fields form_values=custom_field_values />
 
                         <div class="flex flex-col bg-gray-100 rounded-lg p-2 min-w-[150px]">
                             <label class="form-label">"Total"</label>
@@ -578,6 +621,33 @@ pub fn LineItems(
                                                     <tr>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                             {item.name.clone()}
+                                                            <ul class="mt-1 ml-4 list-disc list-inside text-sm text-gray-700">
+                                                                <For
+                                                                    each=move || custom_field_values.get().into_iter()
+                                                                    key=|(_, field)| field.id.clone()
+                                                                    children=move |(_, field)| {
+                                                                        let value_str = match &field.value {
+                                                                            FieldValue::Text(v)
+                                                                            | FieldValue::Email(v)
+                                                                            | FieldValue::Phone(v)
+                                                                            | FieldValue::Textarea(v)
+                                                                            | FieldValue::Dropdown(v)
+                                                                            | FieldValue::Date(v) => v.clone(),
+                                                                            FieldValue::Number(n) => n.to_string(),
+                                                                            FieldValue::Checkbox(b) => {
+                                                                                if *b { "Yes".to_string() } else { "No".to_string() }
+                                                                            }
+                                                                        };
+
+                                                                        view! {
+                                                                            <li>
+                                                                                <strong>{field.label.clone()}:</strong>
+                                                                                {value_str}
+                                                                            </li>
+                                                                        }
+                                                                    }
+                                                                />
+                                                            </ul>
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {item.quantity}
