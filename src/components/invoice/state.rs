@@ -97,19 +97,17 @@ impl InvoiceBuilderState {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "Due Date".to_string(),
                     field_type: FieldType::Date,
-                    category: FieldCategory::GlobalInvoice,
                     default_value: "30 days".to_string(),
                     required: true,
-                    is_default: true,
+                    ..Default::default()
                 },
                 FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "PO Number".to_string(),
                     field_type: FieldType::Number,
-                    category: FieldCategory::GlobalInvoice,
                     default_value: String::new(),
                     required: false,
-                    is_default: false,
+                    ..Default::default()
                 },
                 FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
@@ -118,7 +116,7 @@ impl InvoiceBuilderState {
                     category: FieldCategory::ClientAddress,
                     default_value: "CUST-".to_string(),
                     required: false,
-                    is_default: false,
+                    ..Default::default()
                 },
                 FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
@@ -127,7 +125,7 @@ impl InvoiceBuilderState {
                     category: FieldCategory::LineItem,
                     default_value: "998314".to_string(),
                     required: true,
-                    is_default: false,
+                    ..Default::default()
                 },
             ]),
             line_items: RwSignal::new(vec![]),

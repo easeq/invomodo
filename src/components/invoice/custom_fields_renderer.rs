@@ -34,6 +34,9 @@ pub fn FieldsRenderer(
                             let field_id = field.id.clone();
                             let field_label = field.name.clone();
                             let required = field.required;
+                            let default_value = field.default_value.clone();
+                            let default_checked = field.default_checked;
+                            let field_options = field.options.clone();
 
                             view! {
                                 <div class="flex flex-col">
@@ -48,28 +51,38 @@ pub fn FieldsRenderer(
 
                                     {match field.field_type {
                                         FieldType::Text | FieldType::Email | FieldType::Phone => {
+                                            let field_value = Memo::new({
+                                                let field_id = field.id.clone();
+                                                move |_| match form_values
+                                                    .get()
+                                                    .get(&field_id)
+                                                    .map(|f| {
+                                                        log::debug!("form_value: {f:#?}");
+                                                        &f.value
+                                                    })
+                                                {
+                                                    Some(
+                                                        FieldValue::Text(v)
+                                                        | FieldValue::Email(v)
+                                                        | FieldValue::Phone(v),
+                                                    ) => {
+                                                        log::debug!("value: {v:#?}");
+                                                        v.clone()
+                                                    }
+                                                    _ => {
+                                                        log::debug!("default_value: {default_value:#?}");
+                                                        default_value.clone()
+                                                    }
+                                                }
+                                            });
+
                                             view! {
                                                 <input
                                                     class="form-input"
                                                     id=field_id.clone()
                                                     name=field_id.clone()
                                                     type="text"
-                                                    value={
-                                                        let field_id = field_id.clone();
-                                                        move || match form_values
-                                                            .get()
-                                                            .get(&field_id)
-                                                            .map(|f| &f.value)
-                                                        {
-                                                            Some(
-                                                                FieldValue::Text(v)
-                                                                | FieldValue::Email(v)
-                                                                | FieldValue::Phone(v)
-                                                                | FieldValue::Textarea(v),
-                                                            ) => v.clone(),
-                                                            _ => "".to_string(),
-                                                        }
-                                                    }
+                                                    prop:value=field_value.get()
                                                     on:input={
                                                         let field_id = field_id.clone();
                                                         move |ev| {
@@ -81,9 +94,6 @@ pub fn FieldsRenderer(
                                                                             FieldValue::Text(_) => FieldValue::Text(new_val.clone()),
                                                                             FieldValue::Email(_) => FieldValue::Email(new_val.clone()),
                                                                             FieldValue::Phone(_) => FieldValue::Phone(new_val.clone()),
-                                                                            FieldValue::Textarea(_) => {
-                                                                                FieldValue::Textarea(new_val.clone())
-                                                                            }
                                                                             _ => field_val.value.clone(),
                                                                         };
                                                                     }
@@ -107,7 +117,7 @@ pub fn FieldsRenderer(
                                                                 Some(
                                                                     FieldItemValue { value: FieldValue::Number(n), .. },
                                                                 ) => n.to_string(),
-                                                                _ => "".to_string(),
+                                                                _ => default_value.clone(),
                                                             }
                                                         }
                                                     }
@@ -130,10 +140,17 @@ pub fn FieldsRenderer(
                                                 .into_any()
                                         }
                                         FieldType::Dropdown => {
+                                            let options_list = field_options
+                                                .unwrap_or_default()
+                                                .split(',')
+                                                .map(|s| s.trim().to_string())
+                                                .collect::<Vec<String>>();
 
                                             view! {
                                                 <select
                                                     class="form-select"
+                                                    id=field_id.clone()
+                                                    name=field_id.clone()
                                                     prop:value={
                                                         let field_id = field_id.clone();
                                                         move || {
@@ -141,7 +158,7 @@ pub fn FieldsRenderer(
                                                                 Some(
                                                                     FieldItemValue { value: FieldValue::Dropdown(v), .. },
                                                                 ) => v.clone(),
-                                                                _ => "".to_string(),
+                                                                _ => default_value.clone(),
                                                             }
                                                         }
                                                     }
@@ -158,9 +175,18 @@ pub fn FieldsRenderer(
                                                         }
                                                     }
                                                 >
-                                                    <option value="">"Select an option"</option>
-                                                    <option value="Option1">"Option 1"</option>
-                                                    <option value="Option2">"Option 2"</option>
+                                                    <option value="" disabled selected>
+                                                        "Select an option"
+                                                    </option>
+                                                    <For
+                                                        each=move || options_list.clone()
+                                                        key=|option| option.clone()
+                                                        children=move |option| {
+                                                            view! {
+                                                                <option value=option.clone()>{option.clone()}</option>
+                                                            }
+                                                        }
+                                                    />
                                                 </select>
                                             }
                                                 .into_any()
@@ -170,6 +196,7 @@ pub fn FieldsRenderer(
                                             view! {
                                                 <input
                                                     type="date"
+                                                    class="form-input"
                                                     value={
                                                         let field_id = field_id.clone();
                                                         move || {
@@ -177,7 +204,7 @@ pub fn FieldsRenderer(
                                                                 Some(FieldItemValue { value: FieldValue::Date(d), .. }) => {
                                                                     d.clone()
                                                                 }
-                                                                _ => "".to_string(),
+                                                                _ => default_value.clone(),
                                                             }
                                                         }
                                                     }
@@ -202,6 +229,7 @@ pub fn FieldsRenderer(
                                             view! {
                                                 <input
                                                     type="checkbox"
+                                                    class="form-checkbox"
                                                     checked={
                                                         let field_id = field_id.clone();
                                                         move || {
@@ -209,7 +237,7 @@ pub fn FieldsRenderer(
                                                                 Some(
                                                                     FieldItemValue { value: FieldValue::Checkbox(v), .. },
                                                                 ) => *v,
-                                                                _ => false,
+                                                                _ => default_checked,
                                                             }
                                                         }
                                                     }
@@ -230,16 +258,36 @@ pub fn FieldsRenderer(
                                                 .into_any()
                                         }
                                         FieldType::Textarea => {
-
                                             view! {
                                                 <textarea
-                                                    class="form-textarea"
+                                                    class="form-input"
                                                     id=field_id.clone()
                                                     name=field_id.clone()
                                                     required=required
-                                                >
-                                                    {field.default_value.clone()}
-                                                </textarea>
+                                                    prop:value={
+                                                        let field_id = field_id.clone();
+                                                        move || match form_values
+                                                            .get()
+                                                            .get(&field_id)
+                                                            .map(|f| &f.value)
+                                                        {
+                                                            Some(FieldValue::Textarea(v)) => v.clone(),
+                                                            _ => default_value.clone(),
+                                                        }
+                                                    }
+                                                    on:input={
+                                                        let field_id = field_id.clone();
+                                                        move |ev| {
+                                                            let new_val = event_target_value(&ev);
+                                                            form_values
+                                                                .update(|map| {
+                                                                    if let Some(field_val) = map.get_mut(&field_id) {
+                                                                        field_val.value = FieldValue::Textarea(new_val);
+                                                                    }
+                                                                });
+                                                        }
+                                                    }
+                                                ></textarea>
                                             }
                                                 .into_any()
                                         }

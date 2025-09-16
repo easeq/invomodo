@@ -56,7 +56,7 @@ pub fn InvoiceBuilder() -> impl IntoView {
                             />
                             <InternalTab
                                 name="custom_fields".to_string()
-                                label="Custom Fields".to_string()
+                                label="Data Fields".to_string()
                             />
                             <InternalTab name="preview".to_string() label="Preview".to_string() />
                         </div>

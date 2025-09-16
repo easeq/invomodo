@@ -229,9 +229,9 @@ pub fn LineItems(
     let (selected_discounts, set_selected_discounts) = signal(HashSet::<DiscountItem>::new());
     let (selected_charges, set_selected_charges) = signal(HashSet::<ChargeItem>::new());
 
-    let initial_custom_field_values =
-        Memo::new(move |_| initialize_field_values(&custom_fields.get()));
-    let custom_field_values = RwSignal::new(initial_custom_field_values.get());
+    // let initial_custom_field_values =
+    //     Memo::new(move |_| initialize_field_values(&custom_fields.get()));
+    let custom_field_values = RwSignal::new(initialize_field_values(&custom_fields.get()));
 
     // Computed signal for line item total
     let total = Signal::derive({
@@ -276,6 +276,8 @@ pub fn LineItems(
             custom_fields: custom_field_values.get(),
         };
 
+        log::debug!("form_data: {form_data:#?}");
+
         let validation = form_data.validate();
         if validation.is_valid {
             grid.actions.submit_form.run(form_data);
@@ -286,7 +288,8 @@ pub fn LineItems(
             set_selected_discounts.set(HashSet::new());
             set_selected_charges.set(HashSet::new());
             selected_items.set(HashSet::new());
-            custom_field_values.set(initial_custom_field_values.get());
+            custom_field_values.set(initialize_field_values(&custom_fields.get()));
+            log::debug!("custom_field_values: {:#?}", custom_field_values.get());
         }
     };
 
@@ -481,8 +484,33 @@ pub fn LineItems(
                                                 <div class="flex justify-between items-start mb-2">
                                                     <div>
                                                         <h3 class="font-semibold text-lg">{item.name.clone()}</h3>
-                                                        // {item.description.clone()}
-                                                        <p class="text-gray-500 text-sm"></p>
+                                                        <p class="text-gray-500 text-sm">
+                                                            <For
+                                                                each=move || item.custom_fields.clone().into_iter()
+                                                                key=|(_, field)| field.id.clone()
+                                                                children=move |(_, field)| {
+                                                                    let value_str = match &field.value {
+                                                                        FieldValue::Text(v)
+                                                                        | FieldValue::Email(v)
+                                                                        | FieldValue::Phone(v)
+                                                                        | FieldValue::Textarea(v)
+                                                                        | FieldValue::Dropdown(v)
+                                                                        | FieldValue::Date(v) => v.clone(),
+                                                                        FieldValue::Number(n) => n.to_string(),
+                                                                        FieldValue::Checkbox(b) => {
+                                                                            if *b { "Yes".to_string() } else { "No".to_string() }
+                                                                        }
+                                                                    };
+
+                                                                    view! {
+                                                                        <li>
+                                                                            <strong>{field.label.clone()}:</strong>
+                                                                            {value_str}
+                                                                        </li>
+                                                                    }
+                                                                }
+                                                            />
+                                                        </p>
                                                     </div>
                                                     <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                                                         {format!("${:.2}", item.quantity * item.unit_price)}
@@ -623,7 +651,7 @@ pub fn LineItems(
                                                             {item.name.clone()}
                                                             <ul class="mt-1 ml-4 list-disc list-inside text-sm text-gray-700">
                                                                 <For
-                                                                    each=move || custom_field_values.get().into_iter()
+                                                                    each=move || item.custom_fields.clone().into_iter()
                                                                     key=|(_, field)| field.id.clone()
                                                                     children=move |(_, field)| {
                                                                         let value_str = match &field.value {

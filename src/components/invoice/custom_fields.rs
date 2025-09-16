@@ -19,11 +19,11 @@ pub enum FieldCategory {
 impl std::fmt::Display for FieldCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldCategory::BillerAddress => write!(f, "Biller Address"),
-            FieldCategory::ClientAddress => write!(f, "Client Address"),
-            FieldCategory::LineItem => write!(f, "Line Item"),
-            FieldCategory::GlobalInvoice => write!(f, "Global Invoice"),
-            FieldCategory::BillingDetails => write!(f, "Billing Details"),
+            FieldCategory::BillerAddress => write!(f, "BillerAddress"),
+            FieldCategory::ClientAddress => write!(f, "ClientAddress"),
+            FieldCategory::LineItem => write!(f, "LineItem"),
+            FieldCategory::GlobalInvoice => write!(f, "GlobalInvoice"),
+            FieldCategory::BillingDetails => write!(f, "BillingDetails"),
         }
     }
 }
@@ -56,6 +56,7 @@ impl std::fmt::Display for FieldType {
     }
 }
 
+// NOTE: FieldValue is used for the actual data stored in an invoice, not for field definitions.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum FieldValue {
     Text(String),
@@ -63,7 +64,7 @@ pub enum FieldValue {
     Email(String),
     Phone(String),
     Dropdown(String),
-    Date(String), // or `chrono::NaiveDate` if you're using chrono
+    Date(String),
     Checkbox(bool),
     Textarea(String),
 }
@@ -85,6 +86,10 @@ pub struct FieldItem {
     pub default_value: String,
     pub required: bool,
     pub is_default: bool,
+    // New field to store comma-separated options for Dropdown
+    pub options: Option<String>,
+    // New field to store the default state for Checkbox
+    pub default_checked: bool,
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]
@@ -95,6 +100,8 @@ pub struct FieldForm {
     pub default_value: String,
     pub required: bool,
     pub is_default: bool,
+    pub options: Option<String>,
+    pub default_checked: bool,
 }
 
 // 3. Implement required traits
@@ -110,6 +117,8 @@ impl FormData for FieldItem {
             default_value: String::new(),
             required: false,
             is_default: false,
+            options: None,
+            default_checked: false,
         }
     }
 
@@ -121,6 +130,8 @@ impl FormData for FieldItem {
             default_value: self.default_value.clone(),
             required: self.required,
             is_default: self.is_default,
+            options: self.options.clone(),
+            default_checked: self.default_checked,
         }
     }
 
@@ -133,6 +144,8 @@ impl FormData for FieldItem {
             default_value: props.default_value.clone(),
             required: props.required,
             is_default: props.is_default,
+            options: props.options.clone(),
+            default_checked: props.default_checked,
         }
     }
 }
@@ -147,7 +160,20 @@ impl ItemData for FieldItem {
     }
 
     fn get_subtitle(&self) -> Option<String> {
-        Some(self.default_value.clone())
+        match self.field_type {
+            FieldType::Checkbox => {
+                if self.default_checked {
+                    Some("Checked by default".to_string())
+                } else {
+                    Some("Unchecked by default".to_string())
+                }
+            }
+            FieldType::Dropdown => Some(format!(
+                "Options: {}",
+                self.options.clone().unwrap_or_default()
+            )),
+            _ => Some(self.default_value.clone()),
+        }
     }
 
     fn get_metadata(&self) -> Vec<(String, String)> {
@@ -184,6 +210,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
     let (default_value, set_default_value) = signal(String::new());
     let (required_value, set_required_value) = signal(false);
     let (is_default_value, set_is_default_value) = signal(false);
+    let (options_value, set_options_value) = signal(None::<String>);
+    let (default_checked, set_default_checked) = signal(false);
 
     // Update form fields when grid state changes
     Effect::new({
@@ -196,6 +224,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             set_default_value.set(form.default_value);
             set_required_value.set(form.required);
             set_is_default_value.set(form.is_default);
+            set_options_value.set(form.options);
+            set_default_checked.set(form.default_checked);
         }
     });
 
@@ -210,6 +240,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             default_value: default_value.get(),
             required: required_value.get(),
             is_default: is_default_value.get(),
+            options: options_value.get(),
+            default_checked: default_checked.get(),
         };
 
         let validation = form_data.validate();
@@ -221,22 +253,32 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             set_default_value.set(String::new());
             set_required_value.set(false);
             set_is_default_value.set(false);
+            set_options_value.set(None);
+            set_default_checked.set(false);
         }
     };
 
-    // Handle input changes
-    let handle_name_input = move |ev| {
-        let value = event_target_value(&ev);
-        set_name_value.set(value.clone());
-        grid.actions.update_form.run(FieldForm {
-            name: value,
-            field_type: field_type_value.get(),
-            category: category_value.get(),
-            default_value: default_value.get(),
-            required: required_value.get(),
-            is_default: is_default_value.get(),
-        });
-    };
+    // // Handle input changes
+    // let handle_input_change = move |ev: web_sys::Event| {
+    //     let value = event_target_value(&ev);
+    //     let checked = event_target_checked(&ev);
+    //     let field_type = field_type_value.get();
+    //
+    //     let new_form = FieldForm {
+    //         name: name_value.get(),
+    //         field_type: field_type.clone(),
+    //         category: category_value.get(),
+    //         default_value: match field_type {
+    //             FieldType::Checkbox => String::new(),
+    //             _ => value.clone(),
+    //         },
+    //         required: required_value.get(),
+    //         is_default: is_default_value.get(),
+    //         options: options_value.get(),
+    //         default_checked: default_checked.get(),
+    //     };
+    //     grid.actions.update_form.run(new_form);
+    // };
 
     let handle_field_type_change = move |ev| {
         let value = event_target_value(&ev);
@@ -258,6 +300,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             default_value: default_value.get(),
             required: required_value.get(),
             is_default: is_default_value.get(),
+            options: options_value.get(),
+            default_checked: default_checked.get(),
         });
     };
 
@@ -278,19 +322,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             default_value: default_value.get(),
             required: required_value.get(),
             is_default: is_default_value.get(),
-        });
-    };
-
-    let handle_default_value_input = move |ev| {
-        let value = event_target_value(&ev);
-        set_default_value.set(value.clone());
-        grid.actions.update_form.run(FieldForm {
-            name: name_value.get(),
-            field_type: field_type_value.get(),
-            category: category_value.get(),
-            default_value: value,
-            required: required_value.get(),
-            is_default: is_default_value.get(),
+            options: options_value.get(),
+            default_checked: default_checked.get(),
         });
     };
 
@@ -304,6 +337,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             default_value: default_value.get(),
             required: checked,
             is_default: is_default_value.get(),
+            options: options_value.get(),
+            default_checked: default_checked.get(),
         });
     };
 
@@ -317,6 +352,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             default_value: default_value.get(),
             required: required_value.get(),
             is_default: checked,
+            options: options_value.get(),
+            default_checked: default_checked.get(),
         });
     };
 
@@ -348,7 +385,9 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                                 placeholder="e.g., Due Date"
                                 type="text"
                                 prop:value=move || name_value.get()
-                                on:input=handle_name_input
+                                on:input=move |ev| {
+                                    set_name_value.set(event_target_value(&ev));
+                                }
                                 required
                             />
                         </div>
@@ -391,20 +430,107 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                                 <option value="BillingDetails">"Billing Details"</option>
                             </select>
                         </div>
-                        <div class="md:col-span-2 lg:col-span-1">
-                            <label class="form-label" for="default-value">
-                                "Default Value"
-                            </label>
-                            <input
-                                class="form-input"
-                                id="default-value"
-                                name="default-value"
-                                placeholder="e.g., N/A"
-                                type="text"
-                                prop:value=move || default_value.get()
-                                on:input=handle_default_value_input
-                            />
-                        </div>
+                        {move || match field_type_value.get() {
+                            FieldType::Dropdown => {
+                                view! {
+                                    <div class="md:col-span-2 lg:col-span-1">
+                                        <label class="form-label" for="dropdown-options">
+                                            "Dropdown Options (comma-separated)"
+                                        </label>
+                                        <textarea
+                                            class="form-input"
+                                            id="dropdown-options"
+                                            name="dropdown-options"
+                                            placeholder="e.g., Option 1, Option 2, Option 3"
+                                            prop:value=move || options_value.get().unwrap_or_default()
+                                            on:input=move |ev| {
+                                                let value = event_target_value(&ev);
+                                                set_options_value.set(Some(value));
+                                            }
+                                            rows="3"
+                                        ></textarea>
+                                    </div>
+                                    <div class="md:col-span-2 lg:col-span-1">
+                                        <label class="form-label" for="default-value">
+                                            "Default Value (must match an option)"
+                                        </label>
+                                        <input
+                                            class="form-input"
+                                            id="default-value"
+                                            name="default-value"
+                                            placeholder="e.g., Option 1"
+                                            type="text"
+                                            prop:value=move || default_value.get()
+                                            on:input=move |ev| {
+                                                set_default_value.set(event_target_value(&ev));
+                                            }
+                                        />
+                                    </div>
+                                }
+                                    .into_any()
+                            }
+                            FieldType::Checkbox => {
+                                view! {
+                                    <div class="flex items-end">
+                                        <label class="form-checkbox-label">
+                                            <input
+                                                type="checkbox"
+                                                class="form-checkbox"
+                                                prop:checked=move || default_checked.get()
+                                                on:change=move |ev| {
+                                                    set_default_checked.set(event_target_checked(&ev));
+                                                }
+                                            />
+                                            <span class="ml-2 text-sm text-gray-700">
+                                                "Default Checked"
+                                            </span>
+                                        </label>
+                                    </div>
+                                }
+                                    .into_any()
+                            }
+                            FieldType::Textarea => {
+                                view! {
+                                    <div class="md:col-span-2 lg:col-span-1">
+                                        <label class="form-label" for="default-value">
+                                            "Default Value"
+                                        </label>
+                                        <textarea
+                                            class="form-input"
+                                            id="default-value"
+                                            name="default-value"
+                                            placeholder="e.g., N/A"
+                                            prop:value=move || default_value.get()
+                                            on:input=move |ev| {
+                                                set_default_value.set(event_target_value(&ev));
+                                            }
+                                        ></textarea>
+                                    </div>
+                                }
+                                    .into_any()
+                            }
+                            _ => {
+                                view! {
+                                    <div class="md:col-span-2 lg:col-span-1">
+                                        <label class="form-label" for="default-value">
+                                            "Default Value"
+                                        </label>
+                                        <input
+                                            class="form-input"
+                                            id="default-value"
+                                            name="default-value"
+                                            placeholder="e.g., N/A"
+                                            type="text"
+                                            prop:value=move || default_value.get()
+                                            on:input=move |ev| {
+                                                set_default_value.set(event_target_value(&ev));
+                                            }
+                                        />
+                                    </div>
+                                }
+                                    .into_any()
+                            }
+                        }}
                         <div class="flex items-end">
                             <label class="form-checkbox-label">
                                 <input
@@ -441,6 +567,8 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                                     set_default_value.set(String::new());
                                     set_required_value.set(false);
                                     set_is_default_value.set(false);
+                                    set_options_value.set(None);
+                                    set_default_checked.set(false);
                                 }
                             >
                                 "Cancel"
@@ -583,7 +711,7 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                                                             {item.category.to_string()}
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {item.default_value.clone()}
+                                                            {item.get_subtitle().unwrap_or_default()}
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {if item.required { "Yes" } else { "No" }}
