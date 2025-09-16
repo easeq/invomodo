@@ -258,6 +258,8 @@ pub fn LineItems(
             set_name_value.set(form.name);
             set_quantity_value.set(form.quantity);
             set_unit_price_value.set(form.unit_price);
+            // log::debug!("after form clear: {:#?}", form.custom_fields);
+            // custom_field_values.set(form.custom_fields);
             // TOOO: line item charges are currently saved using an effect in the render
             // GroupedAutocomplete (on form edit). Find a better method
         }

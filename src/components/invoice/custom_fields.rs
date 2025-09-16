@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 use crate::components::editable_grid::{
     FormData, FormValidation, ItemData, ValidationResult, use_editable_grid, validation::validators,
@@ -77,7 +78,7 @@ pub struct FieldItemValue {
 }
 
 // 2. Define your data structure for Custom Fields
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FieldItem {
     pub id: String,
     pub name: String,
@@ -91,6 +92,21 @@ pub struct FieldItem {
     // New field to store the default state for Checkbox
     pub default_checked: bool,
 }
+
+impl Hash for FieldItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+// Implement Eq based only on `id`
+impl PartialEq for FieldItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for FieldItem {}
 
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct FieldForm {
