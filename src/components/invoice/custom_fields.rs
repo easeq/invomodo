@@ -7,24 +7,24 @@ use crate::components::editable_grid::{
 };
 
 // 1. Define enums for custom field categories and types
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, Hash, Eq)]
 pub enum FieldCategory {
     #[default]
-    GlobalInvoice,
-    BillerAddress,
-    ClientAddress,
+    Invoice,
+    Biller,
+    Client,
     LineItem,
-    BillingDetails,
+    ExtraInfo,
 }
 
 impl std::fmt::Display for FieldCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldCategory::BillerAddress => write!(f, "BillerAddress"),
-            FieldCategory::ClientAddress => write!(f, "ClientAddress"),
+            FieldCategory::Biller => write!(f, "Biller"),
+            FieldCategory::Client => write!(f, "Client"),
             FieldCategory::LineItem => write!(f, "LineItem"),
-            FieldCategory::GlobalInvoice => write!(f, "GlobalInvoice"),
-            FieldCategory::BillingDetails => write!(f, "BillingDetails"),
+            FieldCategory::Invoice => write!(f, "Invoice"),
+            FieldCategory::ExtraInfo => write!(f, "ExtraInfo"),
         }
     }
 }
@@ -233,7 +233,7 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
     let (field_type_value, set_field_type_value) = signal(FieldType::Text);
-    let (category_value, set_category_value) = signal(FieldCategory::GlobalInvoice);
+    let (category_value, set_category_value) = signal(FieldCategory::Invoice);
     let (default_value, set_default_value) = signal(String::new());
     let (required_value, set_required_value) = signal(false);
     let (is_default_value, set_is_default_value) = signal(false);
@@ -276,7 +276,7 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
             grid.actions.submit_form.run(form_data);
             set_name_value.set(String::new());
             set_field_type_value.set(FieldType::Text);
-            set_category_value.set(FieldCategory::GlobalInvoice);
+            set_category_value.set(FieldCategory::Invoice);
             set_default_value.set(String::new());
             set_required_value.set(false);
             set_is_default_value.set(false);
@@ -335,11 +335,11 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
     let handle_category_change = move |ev| {
         let value = event_target_value(&ev);
         let category = match value.as_str() {
-            "BillerAddress" => FieldCategory::BillerAddress,
-            "ClientAddress" => FieldCategory::ClientAddress,
+            "Biller" => FieldCategory::Biller,
+            "Client" => FieldCategory::Client,
             "LineItem" => FieldCategory::LineItem,
-            "BillingDetails" => FieldCategory::BillingDetails,
-            _ => FieldCategory::GlobalInvoice,
+            "ExtraInfo" => FieldCategory::ExtraInfo,
+            _ => FieldCategory::Invoice,
         };
         set_category_value.set(category.clone());
         grid.actions.update_form.run(FieldForm {
@@ -450,11 +450,11 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                                 prop:value=move || category_value.get().to_string()
                                 on:change=handle_category_change
                             >
-                                <option value="GlobalInvoice">"Global Invoice"</option>
-                                <option value="BillerAddress">"Biller Address"</option>
-                                <option value="ClientAddress">"Client Address"</option>
+                                <option value="Invoice">"Global Invoice"</option>
+                                <option value="Biller">"Biller Address"</option>
+                                <option value="Client">"Client Address"</option>
                                 <option value="LineItem">"Line Item"</option>
-                                <option value="BillingDetails">"Billing Details"</option>
+                                <option value="ExtraInfo">"Billing Details"</option>
                             </select>
                         </div>
                         {move || match field_type_value.get() {
@@ -590,7 +590,7 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                                     grid.actions.cancel_edit.run(());
                                     set_name_value.set(String::new());
                                     set_field_type_value.set(FieldType::Text);
-                                    set_category_value.set(FieldCategory::GlobalInvoice);
+                                    set_category_value.set(FieldCategory::Invoice);
                                     set_default_value.set(String::new());
                                     set_required_value.set(false);
                                     set_is_default_value.set(false);

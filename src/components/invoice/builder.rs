@@ -1,5 +1,6 @@
 use super::*;
 use leptos::prelude::*;
+use std::collections::HashMap;
 
 #[component]
 pub fn Builder(
@@ -8,6 +9,9 @@ pub fn Builder(
     discounts: ReadSignal<Vec<DiscountItem>>,
     charges: ReadSignal<Vec<ChargeItem>>,
     custom_fields: ReadSignal<Vec<FieldItem>>,
+    extra_info: RwSignal<HashMap<String, FieldItemValue>>,
+    biller_info: RwSignal<HashMap<String, FieldItemValue>>,
+    client_info: RwSignal<HashMap<String, FieldItemValue>>,
 ) -> impl IntoView {
     view! {
         <div class="container mx-auto p-4">
@@ -96,6 +100,18 @@ pub fn Builder(
                     </div>
                 </div>
             </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <CategoryFieldsCard
+                    fields=custom_fields
+                    form_values=biller_info
+                    field_category=FieldCategory::Biller
+                />
+                <CategoryFieldsCard
+                    fields=custom_fields
+                    form_values=client_info
+                    field_category=FieldCategory::Client
+                />
+            </div>
             <LineItems
                 state=line_items
                 taxes=taxes
@@ -103,6 +119,58 @@ pub fn Builder(
                 charges=charges
                 custom_fields=custom_fields
             />
+            <ExtraInfoFields fields=custom_fields form_values=extra_info />
         </div>
     }
+}
+
+#[component]
+pub fn ExtraInfoFields(
+    fields: ReadSignal<Vec<FieldItem>>,
+    form_values: RwSignal<HashMap<String, FieldItemValue>>,
+) -> impl IntoView {
+    let config = FieldsConfig {
+        render_mode: RenderMode::Card {
+            title: Some("Additional Information".to_string()),
+            collapsible: true,
+        },
+        layout: LayoutConfig {
+            container_class: "mb-6".to_string(),
+            grid_class: "grid grid-cols-1 lg:grid-cols-3 gap-6".to_string(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let filter = Box::new(|field: &FieldItem| field.category == FieldCategory::ExtraInfo)
+        as Box<dyn Fn(&FieldItem) -> bool + Send + Sync>;
+
+    view! { <FieldsRenderer fields=fields form_values=form_values config=config filter=filter /> }
+}
+
+#[component]
+pub fn CategoryFieldsCard(
+    fields: ReadSignal<Vec<FieldItem>>,
+    form_values: RwSignal<HashMap<String, FieldItemValue>>,
+    field_category: FieldCategory,
+) -> impl IntoView {
+    let config = FieldsConfig {
+        render_mode: RenderMode::Card {
+            title: Some("Billing Information".to_string()),
+            collapsible: true,
+        },
+        layout: LayoutConfig {
+            container_class: "mb-6".to_string(),
+            grid_class: "grid grid-cols-1 lg:grid-cols-3 gap-6".to_string(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let filter = Box::new({
+        let field_category = field_category.clone();
+        move |field: &FieldItem| field.category == field_category.clone()
+    }) as Box<dyn Fn(&FieldItem) -> bool + Send + Sync>;
+
+    view! { <FieldsRenderer fields=fields form_values=form_values config=config filter=filter /> }
 }

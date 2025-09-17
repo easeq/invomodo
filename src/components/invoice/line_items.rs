@@ -208,6 +208,26 @@ fn initialize_field_values(fields: &[FieldItem]) -> HashMap<String, FieldItemVal
         .collect()
 }
 
+#[component]
+pub fn LineItemFields(
+    fields: ReadSignal<Vec<FieldItem>>,
+    form_values: RwSignal<HashMap<String, FieldItemValue>>,
+) -> impl IntoView {
+    let config = FieldsConfig {
+        render_mode: RenderMode::Collapsible {
+            show_text: "Show Custom Fields".to_string(),
+            hide_text: "Hide Custom Fields".to_string(),
+            initially_open: false,
+        },
+        ..Default::default()
+    };
+
+    let filter = Box::new(|field: &FieldItem| field.category == FieldCategory::LineItem)
+        as Box<dyn Fn(&FieldItem) -> bool + Send + Sync>;
+
+    view! { <FieldsRenderer fields=fields form_values=form_values config=config filter=filter /> }
+}
+
 // 3. Line Items Management Component
 #[component]
 pub fn LineItems(
@@ -434,7 +454,7 @@ pub fn LineItems(
                             />
                         </div>
 
-                        <FieldsRenderer fields=custom_fields form_values=custom_field_values />
+                        <LineItemFields fields=custom_fields form_values=custom_field_values />
 
                         <div class="flex flex-col bg-gray-100 rounded-lg p-2 min-w-[150px]">
                             <label class="form-label">"Total"</label>

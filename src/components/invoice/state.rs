@@ -1,6 +1,7 @@
 use super::*;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct InvoiceBuilderState {
@@ -9,6 +10,9 @@ pub struct InvoiceBuilderState {
     pub charges: RwSignal<Vec<ChargeItem>>,
     pub custom_fields: RwSignal<Vec<FieldItem>>,
     pub line_items: RwSignal<Vec<LineItem>>,
+    pub extra_info: RwSignal<HashMap<String, FieldItemValue>>,
+    pub biller_info: RwSignal<HashMap<String, FieldItemValue>>,
+    pub client_info: RwSignal<HashMap<String, FieldItemValue>>,
     // pub global_discounts: Vec<String>, // Applied discount IDs
     // pub global_charges: Vec<String>,   // Applied charge IDs
     // pub last_updated: String,
@@ -113,7 +117,7 @@ impl InvoiceBuilderState {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "Client ID".to_string(),
                     field_type: FieldType::Text,
-                    category: FieldCategory::ClientAddress,
+                    category: FieldCategory::Client,
                     default_value: "CUST-".to_string(),
                     required: false,
                     ..Default::default()
@@ -127,19 +131,112 @@ impl InvoiceBuilderState {
                     required: true,
                     ..Default::default()
                 },
-                // FieldItem {
-                //     id: uuid::Uuid::new_v4().to_string(),
-                //     name: "Type".to_string(),
-                //     field_type: FieldType::Date,
-                //     category: FieldCategory::LineItem,
-                //     // default_value: "Type 3".to_string(),
-                //     // default_checked: true,
-                //     required: true,
-                //     // options: Some("Type1, Type2, Type 3".to_string()),
-                //     ..Default::default()
-                // },
+                // Biller Details
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Biller Name".to_string(),
+                    field_type: FieldType::Text,
+                    category: FieldCategory::Biller,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Biller Address".to_string(),
+                    field_type: FieldType::Textarea,
+                    category: FieldCategory::Biller,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Biller Email".to_string(),
+                    field_type: FieldType::Email,
+                    category: FieldCategory::Biller,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Biller Phone".to_string(),
+                    field_type: FieldType::Phone,
+                    category: FieldCategory::Biller,
+                    default_value: String::new(),
+                    required: false,
+                    ..Default::default()
+                },
+                // Client Details
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Client Name".to_string(),
+                    field_type: FieldType::Text,
+                    category: FieldCategory::Client,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Client Address".to_string(),
+                    field_type: FieldType::Textarea,
+                    category: FieldCategory::Client,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Client Email".to_string(),
+                    field_type: FieldType::Email,
+                    category: FieldCategory::Client,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Client Phone".to_string(),
+                    field_type: FieldType::Phone,
+                    category: FieldCategory::Client,
+                    default_value: String::new(),
+                    required: false,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Client GSTIN".to_string(),
+                    field_type: FieldType::Text,
+                    category: FieldCategory::Client,
+                    default_value: String::new(),
+                    required: false,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Notes".to_string(),
+                    field_type: FieldType::Textarea,
+                    category: FieldCategory::ExtraInfo,
+                    default_value: String::new(),
+                    required: false,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Terms & Conditions".to_string(),
+                    field_type: FieldType::Textarea,
+                    category: FieldCategory::ExtraInfo,
+                    default_value: "Payment due in 30 days.".to_string(),
+                    required: false,
+                    ..Default::default()
+                },
             ]),
             line_items: RwSignal::new(vec![]),
+            extra_info: RwSignal::new(HashMap::new()),
+            biller_info: RwSignal::new(HashMap::new()),
+            client_info: RwSignal::new(HashMap::new()),
         }
     }
 }

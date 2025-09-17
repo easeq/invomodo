@@ -4,63 +4,221 @@ use std::collections::HashMap;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
-/// The main component for rendering custom fields.
-/// It filters fields and manages the visibility of the custom fields section.
+/// Render mode determines how the fields container is displayed
+#[derive(Clone, Debug, PartialEq)]
+pub enum RenderMode {
+    /// Collapsible section with toggle button
+    Collapsible {
+        show_text: String,
+        hide_text: String,
+        initially_open: bool,
+    },
+    /// Always visible inline rendering
+    Inline,
+    /// Card-style rendering with optional header
+    Card {
+        title: Option<String>,
+        collapsible: bool,
+    },
+    /// Custom wrapper with user-provided view function
+    Custom,
+}
+
+/// Layout configuration for the fields grid
+#[derive(Clone, Debug)]
+pub struct LayoutConfig {
+    pub container_class: String,
+    pub grid_class: String,
+    pub field_wrapper_class: String,
+}
+
+impl Default for LayoutConfig {
+    fn default() -> Self {
+        Self {
+            container_class: "w-full".to_string(),
+            grid_class: "grid grid-cols-1 md:grid-cols-2 gap-4".to_string(),
+            field_wrapper_class: "flex flex-col".to_string(),
+        }
+    }
+}
+
+/// Filter function type for custom field filtering
+pub type FieldFilter = Box<dyn Fn(&FieldItem) -> bool + Send + Sync>;
+
+/// Configuration for the fields renderer
+#[derive(Clone)]
+pub struct FieldsConfig {
+    pub render_mode: RenderMode,
+    pub layout: LayoutConfig,
+    pub show_required_indicator: bool,
+    pub required_indicator_class: String,
+}
+
+impl Default for FieldsConfig {
+    fn default() -> Self {
+        Self {
+            render_mode: RenderMode::Inline,
+            layout: LayoutConfig::default(),
+            show_required_indicator: true,
+            required_indicator_class: "text-red-500 ml-1".to_string(),
+        }
+    }
+}
+
+/// The main generic component for rendering custom fields
 #[component]
 pub fn FieldsRenderer(
     #[prop()] fields: ReadSignal<Vec<FieldItem>>,
     #[prop()] form_values: RwSignal<HashMap<String, FieldItemValue>>,
+    #[prop(optional)] config: Option<FieldsConfig>,
+    #[prop(optional)] filter: Option<FieldFilter>,
+    #[prop(optional)] custom_wrapper: Option<ChildrenFn>,
 ) -> impl IntoView {
-    let is_open = RwSignal::new(false);
+    let config = config.unwrap_or_default();
+    let is_open = RwSignal::new(matches!(
+        config.render_mode,
+        RenderMode::Collapsible {
+            initially_open: true,
+            ..
+        } | RenderMode::Card { .. }
+            | RenderMode::Inline
+            | RenderMode::Custom
+    ));
 
-    let line_item_fields = Memo::new(move |_| {
-        fields
-            .get()
-            .into_iter()
-            .filter(|f| f.category == FieldCategory::LineItem)
-            .collect::<Vec<_>>()
+    // Apply filtering based on provided filter function or default to all fields
+    let filtered_fields = Memo::new({
+        let filter = filter;
+        move |_| {
+            let all_fields = fields.get();
+            if let Some(ref filter_fn) = filter {
+                all_fields
+                    .into_iter()
+                    .filter(|f| filter_fn(f))
+                    .collect::<Vec<_>>()
+            } else {
+                all_fields
+            }
+        }
     });
 
-    view! {
-        <div class="w-full">
-            <button
-                type="button"
-                class="text-sm text-indigo-600 font-medium hover:underline mb-2"
-                on:click=move |_| is_open.update(|v| *v = !*v)
-            >
-                {move || if is_open.get() { "Hide Custom Fields" } else { "Show Custom Fields" }}
-            </button>
-
-            <div
-                class="transition-all duration-300 ease-in-out"
-                class:hidden=move || !is_open.get()
-            >
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <For
-                        each=move || line_item_fields.get()
-                        key=|field| field.id.clone()
-                        children=move |field| {
-                            view! { <FieldComponent field=field.clone() form_values=form_values /> }
+    let fields_content = view! {
+        <div class=config.layout.grid_class>
+            <For
+                each=move || filtered_fields.get()
+                key=|field| field.id.clone()
+                children={
+                    let config = config.clone();
+                    move |field| {
+                        view! {
+                            <div class=config.layout.field_wrapper_class.clone()>
+                                <FieldComponent
+                                    field=field.clone()
+                                    form_values=form_values
+                                    config=config.clone()
+                                />
+                            </div>
                         }
-                    />
-                </div>
-            </div>
+                    }
+                }
+            />
         </div>
+    };
+
+    let content = match custom_wrapper {
+        Some(wrapper) => wrapper().into_any(),
+        None => fields_content.into_any(),
+    };
+
+    match config.render_mode {
+        RenderMode::Collapsible { show_text, hide_text, .. } => {
+            view! {
+                <div class=config.layout.container_class>
+                    <button
+                        type="button"
+                        class="text-sm text-indigo-600 font-medium hover:underline mb-2"
+                        on:click=move |_| is_open.update(|v| *v = !*v)
+                    >
+                        {move || if is_open.get() { hide_text.clone() } else { show_text.clone() }}
+                    </button>
+
+                    <div
+                        class="transition-all duration-300 ease-in-out"
+                        class:hidden=move || !is_open.get()
+                    >
+                        {content}
+                    </div>
+                </div>
+            }.into_any()
+        },
+        RenderMode::Inline => {
+            view! { <div class=config.layout.container_class>{content}</div> }.into_any()
+        },
+        RenderMode::Card { title, collapsible } => {
+            view! {
+                <div class=format!(
+                    "{} bg-white shadow-sm border border-gray-200 rounded-lg",
+                    config.layout.container_class,
+                )>
+                    {title
+                        .map(|t| {
+                            view! {
+                                <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                    <h3 class="text-lg font-medium text-gray-900">{t}</h3>
+                                    {if collapsible {
+                                        Some(
+                                            view! {
+                                                <button
+                                                    type="button"
+                                                    class="text-gray-400 hover:text-gray-600"
+                                                    on:click=move |_| is_open.update(|v| *v = !*v)
+                                                >
+                                                    <svg
+                                                        class="w-5 h-5"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d=move || {
+                                                                if is_open.get() {
+                                                                    "M5 15l7-7 7 7"
+                                                                } else {
+                                                                    "M19 9l-7 7-7-7"
+                                                                }
+                                                            }
+                                                        />
+                                                    </svg>
+                                                </button>
+                                            },
+                                        )
+                                    } else {
+                                        None
+                                    }}
+                                </div>
+                            }
+                        })} <div class="p-4" class:hidden=move || collapsible && !is_open.get()>
+                        {content}
+                    </div>
+                </div>
+            }.into_any()
+        },
+        RenderMode::Custom => content,
     }
 }
 
-/// A component that renders a single custom field based on its type.
-/// It encapsulates the logic for displaying the label and the correct input component.
+/// Enhanced field component that accepts configuration
 #[component]
 fn FieldComponent(
     #[prop()] field: FieldItem,
     #[prop()] form_values: RwSignal<HashMap<String, FieldItemValue>>,
+    #[prop()] config: FieldsConfig,
 ) -> impl IntoView {
     let field_id = field.id.clone();
     let required = field.required;
 
-    // Use a Memo to get the initial value from form_values.
-    // This provides an efficient way to react to changes in form_values.
     let value_memo = Memo::new({
         let field_id = field.id.clone();
         move |_| match form_values.get().get(&field_id).map(|f| &f.value) {
@@ -72,7 +230,7 @@ fn FieldComponent(
             | Some(FieldValue::Dropdown(v)) => FieldValue::Text(v.clone()),
             Some(FieldValue::Number(n)) => FieldValue::Number(*n),
             Some(FieldValue::Checkbox(b)) => FieldValue::Checkbox(*b),
-            _ => FieldValue::Text(field.default_value.clone()), // Default to text for simplicity
+            _ => FieldValue::Text(field.default_value.clone()),
         }
     });
 
@@ -184,21 +342,21 @@ fn FieldComponent(
     };
 
     view! {
-        <div class="flex flex-col">
+        <>
             <label class="form-label" for=field_id.clone()>
                 {field.name.clone()}
-                {if required {
-                    Some(view! { <span class="text-red-500 ml-1">*</span> })
+                {if required && config.show_required_indicator {
+                    Some(view! { <span class=config.required_indicator_class>*</span> })
                 } else {
                     None
                 }}
             </label>
             {input_view}
-        </div>
+        </>
     }
 }
 
-/// A helper function to extract the value from different event targets.
+// Helper functions and utility components remain the same...
 fn get_event_value(ev: web_sys::Event, field_type: &FieldType) -> FieldValue {
     match field_type {
         FieldType::Text | FieldType::Email | FieldType::Phone | FieldType::Date => {
@@ -237,9 +395,7 @@ fn get_event_value(ev: web_sys::Event, field_type: &FieldType) -> FieldValue {
     }
 }
 
-// Reusable input components (unmodified from the original)
-// ... (The original TextInputField, NumberInputField, etc. components are
-//      assumed to be in the same file or a separate shared file)
+// All the input field components remain the same...
 #[component]
 pub fn TextInputField(
     #[prop()] field_id: String,
