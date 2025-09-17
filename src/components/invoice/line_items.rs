@@ -258,8 +258,11 @@ pub fn LineItems(
             set_name_value.set(form.name);
             set_quantity_value.set(form.quantity);
             set_unit_price_value.set(form.unit_price);
-            // log::debug!("after form clear: {:#?}", form.custom_fields);
-            // custom_field_values.set(form.custom_fields);
+            if form.custom_fields.is_empty() {
+                custom_field_values.set(initialize_field_values(&custom_fields.get()));
+            } else {
+                custom_field_values.set(form.custom_fields);
+            }
             // TOOO: line item charges are currently saved using an effect in the render
             // GroupedAutocomplete (on form edit). Find a better method
         }
@@ -278,8 +281,6 @@ pub fn LineItems(
             custom_fields: custom_field_values.get(),
         };
 
-        log::debug!("form_data: {form_data:#?}");
-
         let validation = form_data.validate();
         if validation.is_valid {
             grid.actions.submit_form.run(form_data);
@@ -290,8 +291,7 @@ pub fn LineItems(
             set_selected_discounts.set(HashSet::new());
             set_selected_charges.set(HashSet::new());
             selected_items.set(HashSet::new());
-            custom_field_values.set(initialize_field_values(&custom_fields.get()));
-            log::debug!("custom_field_values: {:#?}", custom_field_values.get());
+            // custom_field_values.set(initialize_field_values(&custom_fields.get()));
         }
     };
 

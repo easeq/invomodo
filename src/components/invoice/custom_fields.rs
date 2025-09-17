@@ -42,6 +42,17 @@ pub enum FieldType {
     Textarea,
 }
 
+impl FieldType {
+    pub fn to_input_type(&self) -> &'static str {
+        match self {
+            FieldType::Number => "number",
+            FieldType::Email => "email",
+            FieldType::Date => "date",
+            _ => "text",
+        }
+    }
+}
+
 impl std::fmt::Display for FieldType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

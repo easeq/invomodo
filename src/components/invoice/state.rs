@@ -127,6 +127,17 @@ impl InvoiceBuilderState {
                     required: true,
                     ..Default::default()
                 },
+                // FieldItem {
+                //     id: uuid::Uuid::new_v4().to_string(),
+                //     name: "Type".to_string(),
+                //     field_type: FieldType::Date,
+                //     category: FieldCategory::LineItem,
+                //     // default_value: "Type 3".to_string(),
+                //     // default_checked: true,
+                //     required: true,
+                //     // options: Some("Type1, Type2, Type 3".to_string()),
+                //     ..Default::default()
+                // },
             ]),
             line_items: RwSignal::new(vec![]),
         }
