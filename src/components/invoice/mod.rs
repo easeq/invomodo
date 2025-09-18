@@ -7,6 +7,7 @@ mod line_items_charges;
 mod other_charges;
 mod state;
 mod taxes;
+mod totals;
 mod view;
 
 pub use builder::*;
@@ -18,4 +19,5 @@ pub use line_items_charges::*;
 pub use other_charges::*;
 pub use state::*;
 pub use taxes::*;
+pub use totals::*;
 pub use view::*;

@@ -12,14 +12,14 @@ pub fn InternalTab(name: String, label: String) -> impl IntoView {
                 view! {
                     <button
                         class=move || {
-                            let mut classes = "px-4 py-3 text-sm font-semibold border-b-2 "
+                            let mut classes = "px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap"
                                 .to_string();
                             if is_sel.get() {
-                                classes.push_str("border-indigo-600 text-gray-900");
+                                classes.push_str(" border-indigo-600 text-indigo-700");
                             } else {
                                 classes
                                     .push_str(
-                                        "border-transparent text-gray-600 hover:text-gray-900",
+                                        " border-transparent text-gray-500 hover:text-gray-700",
                                     );
                             }
                             classes
@@ -43,7 +43,10 @@ pub fn InvoiceBuilder() -> impl IntoView {
             <TabsProvider default="builder".to_string()>
                 <div class="bg-white rounded-md shadow-sm border border-gray-200">
                     <div class="border-b border-gray-200">
-                        <div class="flex px-4">
+                        <div
+                            class="flex overflow-x-auto whitespace-nowrap px-4 scrollbar-hide"
+                            style="scroll-behavior: smooth;"
+                        >
                             <InternalTab name="builder".to_string() label="Builder".to_string() />
                             <InternalTab name="taxes".to_string() label="Taxes".to_string() />
                             <InternalTab

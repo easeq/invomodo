@@ -378,9 +378,9 @@ pub fn LineItems(
     });
 
     view! {
-        <div class="container mx-auto p-4">
+        <div class="space-y-6">
             // Line Item Form Section
-            <div class="bg-white p-8 rounded-xl shadow-lg w-full">
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 w-full space-y-6">
                 <h1 class="text-2xl font-bold text-gray-800 mb-6">
                     {move || {
                         if grid.form_state.get().is_editing {
@@ -482,7 +482,7 @@ pub fn LineItems(
             </div>
 
             // Line Item Table Section
-            <div class="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div class="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
                 {move || {
                     if grid.device_type.get().is_mobile() {
                         // Mobile card layout
