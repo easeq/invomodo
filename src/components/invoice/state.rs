@@ -13,6 +13,7 @@ pub struct InvoiceBuilderState {
     pub extra_info: RwSignal<HashMap<String, FieldItemValue>>,
     pub biller_info: RwSignal<HashMap<String, FieldItemValue>>,
     pub client_info: RwSignal<HashMap<String, FieldItemValue>>,
+    pub invoice_info: RwSignal<HashMap<String, FieldItemValue>>,
     // pub global_discounts: Vec<String>, // Applied discount IDs
     // pub global_charges: Vec<String>,   // Applied charge IDs
     // pub last_updated: String,
@@ -97,22 +98,6 @@ impl InvoiceBuilderState {
                 },
             ]),
             custom_fields: RwSignal::new(vec![
-                FieldItem {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    name: "Due Date".to_string(),
-                    field_type: FieldType::Date,
-                    default_value: "30 days".to_string(),
-                    required: true,
-                    ..Default::default()
-                },
-                FieldItem {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    name: "PO Number".to_string(),
-                    field_type: FieldType::Number,
-                    default_value: String::new(),
-                    required: false,
-                    ..Default::default()
-                },
                 FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "Client ID".to_string(),
@@ -232,11 +217,48 @@ impl InvoiceBuilderState {
                     required: false,
                     ..Default::default()
                 },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Invoice Number".to_string(),
+                    field_type: FieldType::Text,
+                    category: FieldCategory::Invoice,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Issue Date".to_string(),
+                    field_type: FieldType::Date,
+                    category: FieldCategory::Invoice,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Due Date".to_string(),
+                    field_type: FieldType::Date,
+                    category: FieldCategory::Invoice,
+                    default_value: String::new(),
+                    required: true,
+                    ..Default::default()
+                },
+                FieldItem {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Reference Number".to_string(),
+                    field_type: FieldType::Text,
+                    category: FieldCategory::Invoice,
+                    default_value: String::new(),
+                    required: false,
+                    ..Default::default()
+                },
             ]),
             line_items: RwSignal::new(vec![]),
             extra_info: RwSignal::new(HashMap::new()),
             biller_info: RwSignal::new(HashMap::new()),
             client_info: RwSignal::new(HashMap::new()),
+            invoice_info: RwSignal::new(HashMap::new()),
         }
     }
 }

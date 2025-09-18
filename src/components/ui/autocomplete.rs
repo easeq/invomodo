@@ -169,9 +169,6 @@ pub fn GroupedAutocomplete<T, F, DS, R>(
     /// Configuration options
     #[prop(optional)]
     config: Option<AutocompleteConfig>,
-    /// Initial selected items
-    #[prop(optional)]
-    initial_selected: Option<HashSet<T>>,
     /// Callback when selection changes add/remove/update
     #[prop(optional)]
     on_change: Option<Callback<HashSet<T>>>,

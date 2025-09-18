@@ -1,45 +1,66 @@
-use crate::components::invoice::{FieldCategory, FieldItem, FieldItemValue, FieldType, FieldValue};
+use crate::components::invoice::{FieldItem, FieldItemValue, FieldType, FieldValue};
 use std::collections::HashMap;
 
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
-/// Render mode determines how the fields container is displayed
+/// Defines how fields should be grouped and laid out
 #[derive(Clone, Debug, PartialEq)]
-pub enum RenderMode {
-    /// Collapsible section with toggle button
-    Collapsible {
-        show_text: String,
-        hide_text: String,
-        initially_open: bool,
-    },
-    /// Always visible inline rendering
-    Inline,
-    /// Card-style rendering with optional header
-    Card {
-        title: Option<String>,
-        collapsible: bool,
-    },
-    /// Custom wrapper with user-provided view function
-    Custom,
+pub struct FieldGroup {
+    pub name: Option<String>,
+    pub fields: Vec<String>,   // Field IDs that belong to this group
+    pub columns: usize,        // Number of columns for this group
+    pub class: Option<String>, // Optional CSS class for the group
 }
 
-/// Layout configuration for the fields grid
+/// Column span configuration for individual fields
+#[derive(Clone, Debug)]
+pub struct FieldSpan {
+    pub field_id: String,
+    pub span: usize, // How many columns this field should span
+}
+
+/// Layout configuration with grouping support
 #[derive(Clone, Debug)]
 pub struct LayoutConfig {
     pub container_class: String,
-    pub grid_class: String,
+    pub group_class: String,
+    pub group_title_class: String,
     pub field_wrapper_class: String,
+    pub groups: Vec<FieldGroup>,
+    pub field_spans: Vec<FieldSpan>,
+    pub default_columns: usize,
 }
 
 impl Default for LayoutConfig {
     fn default() -> Self {
         Self {
-            container_class: "w-full".to_string(),
-            grid_class: "grid grid-cols-1 md:grid-cols-2 gap-4".to_string(),
+            container_class: "w-full space-y-6".to_string(),
+            group_class: "space-y-4".to_string(),
+            group_title_class: "text-lg font-medium text-gray-900 border-b border-gray-200 pb-2"
+                .to_string(),
             field_wrapper_class: "flex flex-col".to_string(),
+            groups: vec![],
+            field_spans: vec![],
+            default_columns: 2,
         }
     }
+}
+
+/// Render mode determines how the fields container is displayed
+#[derive(Clone, Debug, PartialEq)]
+pub enum RenderMode {
+    Collapsible {
+        show_text: String,
+        hide_text: String,
+        initially_open: bool,
+    },
+    Inline,
+    Card {
+        title: Option<String>,
+        collapsible: bool,
+    },
+    Custom,
 }
 
 /// Filter function type for custom field filtering
@@ -65,7 +86,7 @@ impl Default for FieldsConfig {
     }
 }
 
-/// The main generic component for rendering custom fields
+/// The main generic component for rendering custom fields with grouping
 #[component]
 pub fn FieldsRenderer(
     #[prop()] fields: ReadSignal<Vec<FieldItem>>,
@@ -101,21 +122,155 @@ pub fn FieldsRenderer(
         }
     });
 
+    // Create a map for quick field lookup
+    let fields_map = Memo::new(move |_| {
+        filtered_fields
+            .get()
+            .into_iter()
+            .map(|f| (f.id.clone(), f))
+            .collect::<HashMap<String, FieldItem>>()
+    });
+
+    // Group fields according to configuration
+    let grouped_fields = Memo::new({
+        let config = config.clone();
+        move |_| {
+            let fields_map = fields_map.get();
+            let mut result = Vec::new();
+            let mut used_fields = std::collections::HashSet::new();
+
+            // Process defined groups
+            for group in &config.layout.groups {
+                let group_fields: Vec<FieldItem> = group
+                    .fields
+                    .iter()
+                    .filter_map(|field_id| {
+                        if let Some(field) = fields_map.get(field_id) {
+                            used_fields.insert(field_id.clone());
+                            Some(field.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                if !group_fields.is_empty() {
+                    result.push((Some(group.clone()), group_fields));
+                }
+            }
+
+            // Add remaining ungrouped fields
+            let ungrouped_fields: Vec<FieldItem> = fields_map
+                .values()
+                .filter(|field| !used_fields.contains(&field.id))
+                .cloned()
+                .collect();
+
+            if !ungrouped_fields.is_empty() {
+                let default_group = FieldGroup {
+                    name: None,
+                    fields: vec![],
+                    columns: config.layout.default_columns,
+                    class: None,
+                };
+                result.push((Some(default_group), ungrouped_fields));
+            }
+
+            result
+        }
+    });
+
+    let get_field_span = {
+        let config = config.clone();
+        move |field_id: &str| -> usize {
+            config
+                .layout
+                .field_spans
+                .iter()
+                .find(|span| span.field_id == field_id)
+                .map(|span| span.span)
+                .unwrap_or(1)
+        }
+    };
+
     let fields_content = view! {
-        <div class=config.layout.grid_class>
+        <div class=config.layout.container_class>
             <For
-                each=move || filtered_fields.get()
-                key=|field| field.id.clone()
+                each=move || grouped_fields.get()
+                key=|(group_opt, _)| {
+                    group_opt
+                        .as_ref()
+                        .map(|g| g.name.clone().unwrap_or_else(|| "default".to_string()))
+                        .unwrap_or_else(|| "ungrouped".to_string())
+                }
                 children={
                     let config = config.clone();
-                    move |field| {
+                    let get_field_span = get_field_span.clone();
+                    move |(group_opt, group_fields)| {
+                        let group = group_opt.unwrap();
+                        let grid_cols_class = match group.columns {
+                            1 => "grid-cols-1",
+                            2 => "grid-cols-1 md:grid-cols-2",
+                            3 => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+                            4 => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                            5 => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+                            _ => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+                        };
+                        let final_grid_class = group
+                            .class
+                            .as_ref()
+                            .map(|c| format!("grid gap-4 {}", c))
+                            .unwrap_or_else(|| format!("grid gap-4 {}", grid_cols_class));
+
                         view! {
-                            <div class=config.layout.field_wrapper_class.clone()>
-                                <FieldComponent
-                                    field=field.clone()
-                                    form_values=form_values
-                                    config=config.clone()
-                                />
+                            <div class=config
+                                .layout
+                                .group_class
+                                .clone()>
+                                {group
+                                    .name
+                                    .map(|title| {
+                                        view! {
+                                            <h3 class=config
+                                                .layout
+                                                .group_title_class
+                                                .clone()>{title}</h3>
+                                        }
+                                    })} <div class=final_grid_class>
+                                    <For
+                                        each=move || group_fields.clone()
+                                        key=|field| field.id.clone()
+                                        children={
+                                            let config = config.clone();
+                                            let get_field_span = get_field_span.clone();
+                                            move |field| {
+                                                let span = get_field_span(&field.id);
+                                                let span_class = match span {
+                                                    1 => "col-span-1",
+                                                    2 => "col-span-2",
+                                                    3 => "col-span-3",
+                                                    4 => "col-span-4",
+                                                    5 => "col-span-5",
+                                                    _ => "col-span-full",
+                                                };
+
+                                                view! {
+                                                    <div class=format!(
+                                                        "{} {}",
+                                                        config.layout.field_wrapper_class,
+                                                        span_class,
+                                                    )>
+                                                        <FieldComponent
+                                                            field=field.clone()
+                                                            form_values=form_values
+                                                            config=config.clone()
+                                                        />
+                                                    </div>
+                                                }
+                                            }
+                                        }
+                                    />
+                                </div>
                             </div>
                         }
                     }
@@ -132,10 +287,10 @@ pub fn FieldsRenderer(
     match config.render_mode {
         RenderMode::Collapsible { show_text, hide_text, .. } => {
             view! {
-                <div class=config.layout.container_class>
+                <div class="w-full">
                     <button
                         type="button"
-                        class="text-sm text-indigo-600 font-medium hover:underline mb-2"
+                        class="text-sm text-indigo-600 font-medium hover:underline mb-4"
                         on:click=move |_| is_open.update(|v| *v = !*v)
                     >
                         {move || if is_open.get() { hide_text.clone() } else { show_text.clone() }}
@@ -151,29 +306,27 @@ pub fn FieldsRenderer(
             }.into_any()
         },
         RenderMode::Inline => {
-            view! { <div class=config.layout.container_class>{content}</div> }.into_any()
+            view! { <div class="w-full">{content}</div> }.into_any()
         },
         RenderMode::Card { title, collapsible } => {
             view! {
-                <div class=format!(
-                    "{} bg-white shadow-sm border border-gray-200 rounded-lg",
-                    config.layout.container_class,
-                )>
+                <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
                     {title
                         .map(|t| {
                             view! {
-                                <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                                     <h3 class="text-lg font-medium text-gray-900">{t}</h3>
                                     {if collapsible {
                                         Some(
                                             view! {
                                                 <button
                                                     type="button"
-                                                    class="text-gray-400 hover:text-gray-600"
+                                                    class="text-gray-400 hover:text-gray-600 transition-colors"
                                                     on:click=move |_| is_open.update(|v| *v = !*v)
                                                 >
                                                     <svg
-                                                        class="w-5 h-5"
+                                                        class="w-5 h-5 transition-transform"
+                                                        class:rotate-180=move || is_open.get()
                                                         fill="none"
                                                         stroke="currentColor"
                                                         viewBox="0 0 24 24"
@@ -182,13 +335,7 @@ pub fn FieldsRenderer(
                                                             stroke-linecap="round"
                                                             stroke-linejoin="round"
                                                             stroke-width="2"
-                                                            d=move || {
-                                                                if is_open.get() {
-                                                                    "M5 15l7-7 7 7"
-                                                                } else {
-                                                                    "M19 9l-7 7-7-7"
-                                                                }
-                                                            }
+                                                            d="M19 9l-7 7-7-7"
                                                         />
                                                     </svg>
                                                 </button>
@@ -199,7 +346,7 @@ pub fn FieldsRenderer(
                                     }}
                                 </div>
                             }
-                        })} <div class="p-4" class:hidden=move || collapsible && !is_open.get()>
+                        })} <div class="p-6" class:hidden=move || collapsible && !is_open.get()>
                         {content}
                     </div>
                 </div>
@@ -343,7 +490,7 @@ fn FieldComponent(
 
     view! {
         <>
-            <label class="form-label" for=field_id.clone()>
+            <label class="form-label text-sm font-medium text-gray-700 mb-1" for=field_id.clone()>
                 {field.name.clone()}
                 {if required && config.show_required_indicator {
                     Some(view! { <span class=config.required_indicator_class>*</span> })
@@ -356,7 +503,7 @@ fn FieldComponent(
     }
 }
 
-// Helper functions and utility components remain the same...
+// Helper functions remain the same
 fn get_event_value(ev: web_sys::Event, field_type: &FieldType) -> FieldValue {
     match field_type {
         FieldType::Text | FieldType::Email | FieldType::Phone | FieldType::Date => {
@@ -395,7 +542,7 @@ fn get_event_value(ev: web_sys::Event, field_type: &FieldType) -> FieldValue {
     }
 }
 
-// All the input field components remain the same...
+// Input field components remain the same
 #[component]
 pub fn TextInputField(
     #[prop()] field_id: String,
@@ -405,7 +552,7 @@ pub fn TextInputField(
 ) -> impl IntoView {
     view! {
         <input
-            class="form-input"
+            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             id=field_id.clone()
             name=field_id.clone()
             type=input_type.clone()
@@ -423,7 +570,7 @@ pub fn NumberInputField(
 ) -> impl IntoView {
     view! {
         <input
-            class="form-input"
+            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             id=field_id.clone()
             name=field_id.clone()
             type="number"
@@ -442,7 +589,7 @@ pub fn DropdownField(
 ) -> impl IntoView {
     view! {
         <select
-            class="form-select"
+            class="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             id=field_id.clone()
             name=field_id.clone()
             prop:value=move || value.get()
@@ -471,7 +618,7 @@ pub fn DateInputField(
     view! {
         <input
             type="date"
-            class="form-input"
+            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             id=field_id.clone()
             name=field_id.clone()
             prop:value=move || value.get()
@@ -489,7 +636,7 @@ pub fn CheckboxField(
     view! {
         <input
             type="checkbox"
-            class="form-checkbox"
+            class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             id=field_id.clone()
             name=field_id.clone()
             prop:checked=move || checked.get()
@@ -507,9 +654,10 @@ pub fn TextareaField(
 ) -> impl IntoView {
     view! {
         <textarea
-            class="form-input"
+            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             id=field_id.clone()
             name=field_id.clone()
+            rows="3"
             required=required
             prop:value=move || value.get()
             on:input=move |ev| on_change.run(ev)

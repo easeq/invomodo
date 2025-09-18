@@ -71,6 +71,7 @@ pub fn InvoiceBuilder() -> impl IntoView {
                             extra_info=invoice_builder_state.extra_info
                             biller_info=invoice_builder_state.biller_info
                             client_info=invoice_builder_state.client_info
+                            invoice_info=invoice_builder_state.invoice_info
                         />
                     </TabPanel>
                     <TabPanel name="taxes".to_string()>
