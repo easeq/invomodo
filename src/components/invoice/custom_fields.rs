@@ -228,7 +228,8 @@ impl FormValidation for FieldForm {
 // 4. Custom Field Management Component
 #[component]
 pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
-    let grid = use_editable_grid(state.read_only(), state.write_only());
+    let form_ref: NodeRef<leptos::html::Form> = NodeRef::new();
+    let grid = use_editable_grid(state.read_only(), state.write_only(), form_ref);
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
@@ -377,7 +378,7 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
                     }}
                 </h3>
 
-                <form on:submit=handle_submit>
+                <form node_ref=form_ref on:submit=handle_submit>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div>
                             <label class="form-label" for="field-name">

@@ -45,6 +45,9 @@ web-sys = { version = "0.3.77", features = [
   "Storage",
   "Screen",
   "Crypto",
+  "ScrollIntoViewOptions",
+  "ScrollBehavior",
+  "ScrollLogicalPosition",
 ] }
 js-sys = "0.3.77"
 

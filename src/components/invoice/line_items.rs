@@ -237,7 +237,8 @@ pub fn LineItems(
     charges: ReadSignal<Vec<ChargeItem>>,
     custom_fields: ReadSignal<Vec<FieldItem>>,
 ) -> impl IntoView {
-    let grid = use_editable_grid(state.read_only(), state.write_only());
+    let form_ref: NodeRef<leptos::html::Form> = NodeRef::new();
+    let grid = use_editable_grid(state.read_only(), state.write_only(), form_ref);
 
     // Form field signals
     let (name_value, set_name_value) = signal(String::new());
@@ -390,7 +391,7 @@ pub fn LineItems(
                         }
                     }}
                 </h1>
-                <form on:submit=handle_submit class="w-full">
+                <form node_ref=form_ref on:submit=handle_submit class="w-full">
                     <div class="flex flex-wrap items-start gap-x-6 gap-y-4 w-full">
                         <div class="flex flex-col flex-[2] min-w-[200px]">
                             <label class="form-label" for="item-name">

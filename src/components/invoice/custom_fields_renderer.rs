@@ -1,4 +1,4 @@
-use crate::components::invoice::{FieldCategory, FieldItem, FieldItemValue, FieldType, FieldValue};
+use crate::components::invoice::{FieldItem, FieldItemValue, FieldType, FieldValue};
 use std::collections::HashMap;
 
 use leptos::prelude::*;

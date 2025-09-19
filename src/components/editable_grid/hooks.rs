@@ -1,3 +1,4 @@
+use leptos::html::Form;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use web_sys::window;
@@ -90,6 +91,7 @@ where
 pub fn use_editable_grid<T, P>(
     items: ReadSignal<Vec<T>>,
     set_items: WriteSignal<Vec<T>>,
+    form_ref: NodeRef<Form>,
 ) -> UseEditableGridReturn<T, P>
 where
     T: FormData<FormProps = P>
@@ -132,6 +134,7 @@ where
         set_current_form,
         editing_index,
         set_editing_index,
+        form_ref,
     );
 
     UseEditableGridReturn {
@@ -151,6 +154,7 @@ fn create_grid_actions<T, P>(
     set_current_form: WriteSignal<P>,
     editing_index: ReadSignal<Option<usize>>,
     set_editing_index: WriteSignal<Option<usize>>,
+    form_ref: NodeRef<Form>,
 ) -> GridActions<P>
 where
     T: FormData<FormProps = P> + Clone + PartialEq + Send + Sync + std::fmt::Debug + 'static,
@@ -179,11 +183,16 @@ where
     });
 
     let edit_item = Callback::new(move |index: usize| {
-        // Use items signal directly instead of set_items.with_untracked
         let items = items.get_untracked();
         if let Some(item) = items.get(index) {
             set_current_form.set(item.to_form_props());
             set_editing_index.set(Some(index));
+
+            // Scroll the form into view and focus it
+            if let Some(form_element) = form_ref.get() {
+                let _ = form_element.scroll_into_view_with_bool(true);
+                let _ = form_element.focus();
+            }
         }
     });
 
