@@ -280,7 +280,7 @@ pub fn OtherCharges(state: RwSignal<Vec<ChargeItem>>) -> impl IntoView {
     };
 
     view! {
-        <div class="container mx-auto p-4">
+        <div class="w-full px-4 py-6">
             // Other Charges Form Section
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 class="text-lg font-medium leading-6 text-gray-900 mb-6">

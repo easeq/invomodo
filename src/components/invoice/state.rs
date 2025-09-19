@@ -100,15 +100,6 @@ impl InvoiceBuilderState {
             custom_fields: RwSignal::new(vec![
                 FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
-                    name: "Client ID".to_string(),
-                    field_type: FieldType::Text,
-                    category: FieldCategory::Client,
-                    default_value: "CUST-".to_string(),
-                    required: false,
-                    ..Default::default()
-                },
-                FieldItem {
-                    id: uuid::Uuid::new_v4().to_string(),
                     name: "SAC".to_string(),
                     field_type: FieldType::Text,
                     category: FieldCategory::LineItem,
@@ -190,15 +181,15 @@ impl InvoiceBuilderState {
                     required: false,
                     ..Default::default()
                 },
-                FieldItem {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    name: "Client GSTIN".to_string(),
-                    field_type: FieldType::Text,
-                    category: FieldCategory::Client,
-                    default_value: String::new(),
-                    required: false,
-                    ..Default::default()
-                },
+                // FieldItem {
+                //     id: uuid::Uuid::new_v4().to_string(),
+                //     name: "Client GSTIN".to_string(),
+                //     field_type: FieldType::Text,
+                //     category: FieldCategory::Client,
+                //     default_value: String::new(),
+                //     required: false,
+                //     ..Default::default()
+                // },
                 FieldItem {
                     id: uuid::Uuid::new_v4().to_string(),
                     name: "Notes".to_string(),

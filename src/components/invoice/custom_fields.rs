@@ -285,28 +285,6 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
         }
     };
 
-    // // Handle input changes
-    // let handle_input_change = move |ev: web_sys::Event| {
-    //     let value = event_target_value(&ev);
-    //     let checked = event_target_checked(&ev);
-    //     let field_type = field_type_value.get();
-    //
-    //     let new_form = FieldForm {
-    //         name: name_value.get(),
-    //         field_type: field_type.clone(),
-    //         category: category_value.get(),
-    //         default_value: match field_type {
-    //             FieldType::Checkbox => String::new(),
-    //             _ => value.clone(),
-    //         },
-    //         required: required_value.get(),
-    //         is_default: is_default_value.get(),
-    //         options: options_value.get(),
-    //         default_checked: default_checked.get(),
-    //     };
-    //     grid.actions.update_form.run(new_form);
-    // };
-
     let handle_field_type_change = move |ev| {
         let value = event_target_value(&ev);
         let field_type = match value.as_str() {
@@ -385,7 +363,7 @@ pub fn Fields(state: RwSignal<Vec<FieldItem>>) -> impl IntoView {
     };
 
     view! {
-        <div class="container mx-auto p-4">
+        <div class="w-full px-4 py-6">
             // Custom Field Form Section
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 class="text-lg font-medium leading-6 text-gray-900 mb-6">

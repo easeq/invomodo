@@ -391,7 +391,7 @@ pub fn LineItems(
                     }}
                 </h1>
                 <form on:submit=handle_submit class="w-full">
-                    <div class="flex flex-wrap items-end gap-x-6 gap-y-4 w-full">
+                    <div class="flex flex-wrap items-start gap-x-6 gap-y-4 w-full">
                         <div class="flex flex-col flex-[2] min-w-[200px]">
                             <label class="form-label" for="item-name">
                                 "Item Name"
