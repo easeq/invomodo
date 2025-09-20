@@ -1,112 +1,141 @@
-use crate::components::invoice::{FieldItem, FieldItemValue, FieldType, FieldValue};
-use std::collections::HashMap;
-
+use crate::components::invoice::{
+    FieldGroup, FieldItem, FieldItemValue, FieldType, FieldValue, GenerationContext,
+};
 use leptos::prelude::*;
-use wasm_bindgen::JsCast;
+use std::collections::HashMap;
+use time::OffsetDateTime;
 
-/// Defines how fields should be grouped and laid out
+/// Field render data passed to custom renderers
 #[derive(Clone, Debug, PartialEq)]
-pub struct FieldGroup {
-    pub name: Option<String>,
-    pub fields: Vec<String>,   // Field IDs that belong to this group
-    pub columns: usize,        // Number of columns for this group
-    pub class: Option<String>, // Optional CSS class for the group
+pub struct FieldRenderData {
+    pub field: FieldItem,
+    pub value: FieldValue,
+    pub validation_errors: Vec<String>,
+    pub is_focused: bool,
+    pub is_dirty: bool,
 }
 
-/// Column span configuration for individual fields
-#[derive(Clone, Debug)]
-pub struct FieldSpan {
-    pub field_id: String,
-    pub span: usize, // How many columns this field should span
-}
-
-/// Layout configuration with grouping support
-#[derive(Clone, Debug)]
-pub struct LayoutConfig {
-    pub container_class: String,
-    pub group_class: String,
-    pub group_title_class: String,
-    pub field_wrapper_class: String,
-    pub groups: Vec<FieldGroup>,
-    pub field_spans: Vec<FieldSpan>,
-    pub default_columns: usize,
-}
-
-impl Default for LayoutConfig {
-    fn default() -> Self {
-        Self {
-            container_class: "w-full space-y-6".to_string(),
-            group_class: "space-y-4".to_string(),
-            group_title_class: "text-lg font-medium text-gray-900 border-b border-gray-200 pb-2"
-                .to_string(),
-            field_wrapper_class: "flex flex-col".to_string(),
-            groups: vec![],
-            field_spans: vec![],
-            default_columns: 2,
-        }
-    }
-}
-
-/// Render mode determines how the fields container is displayed
+/// Group render data passed to custom group renderers
 #[derive(Clone, Debug, PartialEq)]
-pub enum RenderMode {
-    Collapsible {
-        show_text: String,
-        hide_text: String,
-        initially_open: bool,
-    },
-    Inline,
-    Card {
-        title: Option<String>,
-        collapsible: bool,
-    },
-    Custom,
+pub struct GroupRenderData {
+    pub group: FieldGroup,
+    pub fields: Vec<FieldRenderData>,
+    pub is_expanded: bool,
 }
+
+/// Container render data for the entire form
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContainerRenderData {
+    pub groups: Vec<GroupRenderData>,
+    pub ungrouped_fields: Vec<FieldRenderData>,
+    pub total_fields: usize,
+    pub total_errors: usize,
+    pub is_valid: bool,
+}
+
+/// Field interaction callbacks
+#[derive(Clone)]
+pub struct FieldCallbacks {
+    pub on_value_change: Callback<(String, FieldValue)>, // (field_id, new_value)
+    pub on_focus: Option<Callback<String>>,              // field_id
+    pub on_blur: Option<Callback<String>>,               // field_id
+    pub on_validation_trigger: Option<Callback<String>>, // field_id
+}
+
+/// Group interaction callbacks
+#[derive(Clone)]
+pub struct GroupCallbacks {
+    pub on_expand_toggle: Option<Callback<String>>, // group_id
+    pub on_add_repetition: Option<Callback<String>>, // group_id for repeatable groups
+    pub on_remove_repetition: Option<Callback<(String, usize)>>, // (group_id, index)
+}
+
+/// Container interaction callbacks
+#[derive(Clone)]
+pub struct ContainerCallbacks {
+    pub on_form_submit: Option<Callback<HashMap<String, FieldItemValue>>>,
+    pub on_form_reset: Option<Callback<()>>,
+    pub on_form_validate: Option<Callback<()>>,
+}
+
+/// Render function type definitions - completely headless
+pub type FieldRenderer = Box<dyn Fn(FieldRenderData, FieldCallbacks) -> AnyView + Send + Sync>;
+pub type GroupRenderer =
+    Box<dyn Fn(GroupRenderData, GroupCallbacks, AnyView) -> AnyView + Send + Sync>;
+pub type ContainerRenderer =
+    Box<dyn Fn(ContainerRenderData, ContainerCallbacks, AnyView) -> AnyView + Send + Sync>;
 
 /// Filter function type for custom field filtering
 pub type FieldFilter = Box<dyn Fn(&FieldItem) -> bool + Send + Sync>;
 
-/// Configuration for the fields renderer
-#[derive(Clone)]
-pub struct FieldsConfig {
-    pub render_mode: RenderMode,
-    pub layout: LayoutConfig,
-    pub show_required_indicator: bool,
-    pub required_indicator_class: String,
+/// Auto-value generator registry trait
+pub trait AutoValueGeneratorRegistry: Send + Sync {
+    fn generate(
+        &self,
+        generator_id: &str,
+        parameters: &HashMap<String, String>,
+        context: &GenerationContext,
+    ) -> Result<String, String>;
+    fn list_generators(&self) -> Vec<(String, String)>; // (id, description) pairs
 }
 
-impl Default for FieldsConfig {
+/// Field validation trait
+pub trait FieldValidator: Send + Sync {
+    fn validate(&self, field: &FieldItem, value: &FieldValue) -> Vec<String>;
+}
+
+/// Render context for field rendering and value management
+#[derive(Default)]
+pub struct FieldRenderContext {
+    pub current_values: HashMap<String, FieldItemValue>,
+    pub validation_errors: HashMap<String, Vec<String>>,
+    pub focused_field: Option<String>,
+    pub dirty_fields: std::collections::HashSet<String>,
+    pub expanded_groups: std::collections::HashSet<String>,
+    pub counter_states: HashMap<String, i64>,
+}
+
+/// Configuration for the headless renderer - only behavior, no presentation
+#[derive(Clone)]
+pub struct HeadlessRendererConfig {
+    pub auto_generation_enabled: bool,
+    pub validation_enabled: bool,
+    pub real_time_validation: bool,
+    pub auto_save_enabled: bool,
+    pub auto_save_debounce_ms: u64,
+}
+
+impl Default for HeadlessRendererConfig {
     fn default() -> Self {
         Self {
-            render_mode: RenderMode::Inline,
-            layout: LayoutConfig::default(),
-            show_required_indicator: true,
-            required_indicator_class: "text-red-500 ml-1".to_string(),
+            auto_generation_enabled: true,
+            validation_enabled: true,
+            real_time_validation: false,
+            auto_save_enabled: false,
+            auto_save_debounce_ms: 1000,
         }
     }
 }
 
-/// The main generic component for rendering custom fields with grouping
+/// The completely headless renderer component
 #[component]
-pub fn FieldsRenderer(
-    #[prop()] fields: ReadSignal<Vec<FieldItem>>,
+pub fn HeadlessFieldsRenderer(
+    #[prop()] fields: Memo<Vec<FieldItem>>,
+    #[prop()] groups: ReadSignal<Vec<FieldGroup>>,
     #[prop()] form_values: RwSignal<HashMap<String, FieldItemValue>>,
-    #[prop(optional)] config: Option<FieldsConfig>,
+    #[prop()] field_renderer: RwSignal<FieldRenderer>,
+    #[prop(optional)] group_renderer: Option<RwSignal<GroupRenderer>>,
+    #[prop(optional)] container_renderer: Option<RwSignal<ContainerRenderer>>,
+    #[prop(optional)] config: Option<HeadlessRendererConfig>,
     #[prop(optional)] filter: Option<FieldFilter>,
-    #[prop(optional)] custom_wrapper: Option<ChildrenFn>,
+    #[prop(optional)] context: Option<RwSignal<FieldRenderContext>>,
+    #[prop(optional)] auto_generator_registry: Option<Box<dyn AutoValueGeneratorRegistry>>,
+    #[prop(optional)] field_validator: Option<Box<dyn FieldValidator>>,
 ) -> impl IntoView {
     let config = config.unwrap_or_default();
-    let is_open = RwSignal::new(matches!(
-        config.render_mode,
-        RenderMode::Collapsible {
-            initially_open: true,
-            ..
-        } | RenderMode::Card { .. }
-            | RenderMode::Inline
-            | RenderMode::Custom
-    ));
+    let render_context = context.unwrap_or_else(|| RwSignal::new(FieldRenderContext::default()));
 
-    // Apply filtering based on provided filter function or default to all fields
+    // Apply filtering
     let filtered_fields = Memo::new({
         let filter = filter;
         move |_| {
@@ -122,7 +151,7 @@ pub fn FieldsRenderer(
         }
     });
 
-    // Create a map for quick field lookup
+    // Create field lookup map
     let fields_map = Memo::new(move |_| {
         filtered_fields
             .get()
@@ -131,536 +160,384 @@ pub fn FieldsRenderer(
             .collect::<HashMap<String, FieldItem>>()
     });
 
-    // Group fields according to configuration
-    let grouped_fields = Memo::new({
-        let config = config.clone();
-        move |_| {
-            let fields_map = fields_map.get();
-            let mut result = Vec::new();
-            let mut used_fields = std::collections::HashSet::new();
-
-            // Process defined groups
-            for group in &config.layout.groups {
-                let group_fields: Vec<FieldItem> = group
-                    .fields
-                    .iter()
-                    .filter_map(|field_id| {
-                        if let Some(field) = fields_map.get(field_id) {
-                            used_fields.insert(field_id.clone());
-                            Some(field.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                if !group_fields.is_empty() {
-                    result.push((Some(group.clone()), group_fields));
-                }
-            }
-
-            // Add remaining ungrouped fields
-            let ungrouped_fields: Vec<FieldItem> = fields_map
-                .values()
-                .filter(|field| !used_fields.contains(&field.id))
-                .cloned()
-                .collect();
-
-            if !ungrouped_fields.is_empty() {
-                let default_group = FieldGroup {
-                    name: None,
-                    fields: vec![],
-                    columns: config.layout.default_columns,
-                    class: None,
-                };
-                result.push((Some(default_group), ungrouped_fields));
-            }
-
-            result
-        }
+    // Create group lookup map
+    let groups_map = Memo::new(move |_| {
+        groups
+            .get()
+            .into_iter()
+            .map(|g| (g.id.clone(), g))
+            .collect::<HashMap<String, FieldGroup>>()
     });
 
-    let get_field_span = {
+    // Auto-value generation effect
+    Effect::new({
         let config = config.clone();
-        move |field_id: &str| -> usize {
-            config
-                .layout
-                .field_spans
-                .iter()
-                .find(|span| span.field_id == field_id)
-                .map(|span| span.span)
-                .unwrap_or(1)
-        }
-    };
+        move |_| {
+            if !config.auto_generation_enabled {
+                return;
+            }
 
-    let fields_content = view! {
-        <div class=config.layout.container_class>
-            <For
-                each=move || grouped_fields.get()
-                key=|(group_opt, _)| {
-                    group_opt
-                        .as_ref()
-                        .map(|g| g.name.clone().unwrap_or_else(|| "default".to_string()))
-                        .unwrap_or_else(|| "ungrouped".to_string())
-                }
-                children={
-                    let config = config.clone();
-                    let get_field_span = get_field_span.clone();
-                    move |(group_opt, group_fields)| {
-                        let group = group_opt.unwrap();
-                        let grid_cols_class = match group.columns {
-                            1 => "grid-cols-1",
-                            2 => "grid-cols-1 md:grid-cols-2",
-                            3 => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-                            4 => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-                            5 => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
-                            _ => "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            let fields_map = fields_map.get();
+
+            for field in fields_map.values() {
+                if matches!(field.field_type, FieldType::AutoGenerated) {
+                    if let Some(ref auto_gen) = field.auto_generation {
+                        let (current_values, counter_states) = render_context.with(|context| {
+                            let current_values = context
+                                .current_values
+                                .clone()
+                                .into_iter()
+                                .map(|(k, v)| (k, v.value))
+                                .collect();
+
+                            let counter_states = context.counter_states.clone();
+
+                            (current_values, counter_states)
+                        });
+
+                        let generation_context = GenerationContext {
+                            current_values,
+                            counter_states,
+                            current_date: OffsetDateTime::now_utc(),
                         };
-                        let final_grid_class = group
-                            .class
-                            .as_ref()
-                            .map(|c| format!("grid gap-4 {}", c))
-                            .unwrap_or_else(|| format!("grid gap-4 {}", grid_cols_class));
 
-                        view! {
-                            <div class=config
-                                .layout
-                                .group_class
-                                .clone()>
-                                {group
-                                    .name
-                                    .map(|title| {
-                                        view! {
-                                            <h3 class=config
-                                                .layout
-                                                .group_title_class
-                                                .clone()>{title}</h3>
-                                        }
-                                    })} <div class=final_grid_class>
-                                    <For
-                                        each=move || group_fields.clone()
-                                        key=|field| field.id.clone()
-                                        children={
-                                            let config = config.clone();
-                                            let get_field_span = get_field_span.clone();
-                                            move |field| {
-                                                let span = get_field_span(&field.id);
-                                                let span_class = match span {
-                                                    1 => "col-span-1",
-                                                    2 => "col-span-2",
-                                                    3 => "col-span-3",
-                                                    4 => "col-span-4",
-                                                    5 => "col-span-5",
-                                                    _ => "col-span-full",
-                                                };
-
-                                                view! {
-                                                    <div class=format!(
-                                                        "{} {}",
-                                                        config.layout.field_wrapper_class,
-                                                        span_class,
-                                                    )>
-                                                        <FieldComponent
-                                                            field=field.clone()
-                                                            form_values=form_values
-                                                            config=config.clone()
-                                                        />
-                                                    </div>
-                                                }
-                                            }
-                                        }
-                                    />
-                                </div>
-                            </div>
+                        match auto_gen.generate(&generation_context, &field.id) {
+                            Ok(generated_value) => {
+                                form_values.update(|values| {
+                                    values.insert(
+                                        field.id.clone(),
+                                        FieldItemValue {
+                                            id: field.id.clone(),
+                                            label: field.name.clone(),
+                                            value: FieldValue::AutoGenerated(generated_value),
+                                        },
+                                    );
+                                });
+                            }
+                            Err(error) => {
+                                render_context.update(|ctx| {
+                                    ctx.validation_errors.insert(field.id.clone(), vec![error]);
+                                });
+                            }
                         }
                     }
                 }
-            />
-        </div>
-    };
 
-    let content = match custom_wrapper {
-        Some(wrapper) => wrapper().into_any(),
-        None => fields_content.into_any(),
-    };
-
-    match config.render_mode {
-        RenderMode::Collapsible { show_text, hide_text, .. } => {
-            view! {
-                <div class="w-full">
-                    <button
-                        type="button"
-                        class="text-sm text-indigo-600 font-medium hover:underline mb-4"
-                        on:click=move |_| is_open.update(|v| *v = !*v)
-                    >
-                        {move || if is_open.get() { hide_text.clone() } else { show_text.clone() }}
-                    </button>
-
-                    <div
-                        class="transition-all duration-300 ease-in-out"
-                        class:hidden=move || !is_open.get()
-                    >
-                        {content}
-                    </div>
-                </div>
-            }.into_any()
-        },
-        RenderMode::Inline => {
-            view! { <div class="w-full">{content}</div> }.into_any()
-        },
-        RenderMode::Card { title, collapsible } => {
-            view! {
-                <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
-                    {title
-                        .map(|t| {
-                            view! {
-                                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                                    <h3 class="text-lg font-medium text-gray-900">{t}</h3>
-                                    {if collapsible {
-                                        Some(
-                                            view! {
-                                                <button
-                                                    type="button"
-                                                    class="text-gray-400 hover:text-gray-600 transition-colors"
-                                                    on:click=move |_| is_open.update(|v| *v = !*v)
-                                                >
-                                                    <svg
-                                                        class="w-5 h-5 transition-transform"
-                                                        class:rotate-180=move || is_open.get()
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path
-                                                            stroke-linecap="round"
-                                                            stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M19 9l-7 7-7-7"
-                                                        />
-                                                    </svg>
-                                                </button>
-                                            },
-                                        )
-                                    } else {
-                                        None
-                                    }}
-                                </div>
+                // Handle date defaults
+                if matches!(field.field_type, FieldType::Date) {
+                    if let Some(ref date_default) = field.date_default {
+                        if !form_values.get().contains_key(&field.id) {
+                            if let Ok(default_date) = date_default.resolve() {
+                                form_values.update(|values| {
+                                    values.insert(
+                                        field.id.clone(),
+                                        FieldItemValue {
+                                            id: field.id.clone(),
+                                            label: field.name.clone(),
+                                            value: FieldValue::Date(default_date),
+                                        },
+                                    );
+                                });
                             }
-                        })} <div class="p-6" class:hidden=move || collapsible && !is_open.get()>
-                        {content}
-                    </div>
-                </div>
-            }.into_any()
-        },
-        RenderMode::Custom => content,
-    }
-}
-
-/// Enhanced field component that accepts configuration
-#[component]
-fn FieldComponent(
-    #[prop()] field: FieldItem,
-    #[prop()] form_values: RwSignal<HashMap<String, FieldItemValue>>,
-    #[prop()] config: FieldsConfig,
-) -> impl IntoView {
-    let field_id = field.id.clone();
-    let required = field.required;
-
-    let value_memo = Memo::new({
-        let field_id = field.id.clone();
-        move |_| match form_values.get().get(&field_id).map(|f| &f.value) {
-            Some(FieldValue::Text(v))
-            | Some(FieldValue::Email(v))
-            | Some(FieldValue::Phone(v))
-            | Some(FieldValue::Textarea(v))
-            | Some(FieldValue::Date(v))
-            | Some(FieldValue::Dropdown(v)) => FieldValue::Text(v.clone()),
-            Some(FieldValue::Number(n)) => FieldValue::Number(*n),
-            Some(FieldValue::Checkbox(b)) => FieldValue::Checkbox(*b),
-            _ => FieldValue::Text(field.default_value.clone()),
+                        }
+                    }
+                }
+            }
         }
     });
 
-    let on_change = {
-        let field_id = field.id.clone();
-        Callback::new({
-            let field_type = field.field_type.clone();
-            move |ev: web_sys::Event| {
-                let value = get_event_value(ev, &field_type);
-                form_values.update(|map| {
-                    if let Some(f) = map.get_mut(&field_id) {
-                        f.value = value;
+    // Validation effect
+    Effect::new({
+        let config = config.clone();
+        move |_| {
+            if !config.validation_enabled {
+                return;
+            }
+
+            if let Some(validator) = &field_validator {
+                let fields_map = fields_map.get();
+                let form_vals = form_values.get();
+
+                render_context.update(|ctx| {
+                    ctx.validation_errors.clear();
+
+                    for field in fields_map.values() {
+                        if let Some(field_value) = form_vals.get(&field.id) {
+                            let errors = validator.validate(field, &field_value.value);
+                            if !errors.is_empty() {
+                                ctx.validation_errors.insert(field.id.clone(), errors);
+                            }
+                        }
                     }
                 });
             }
-        })
-    };
+        }
+    });
 
-    let input_view = match field.field_type {
-        FieldType::Text | FieldType::Email | FieldType::Phone => view! {
-            <TextInputField
-                field_id=field_id.clone()
-                input_type=field.field_type.to_input_type().to_string()
-                value=Memo::new(move |_| {
-                    match value_memo.get() {
-                        FieldValue::Text(v) => v,
-                        _ => String::new(),
+    // Function to get current container data (not memoized due to complexity)
+    let get_container_data = move || -> ContainerRenderData {
+        let fields_map = fields_map.get();
+        let groups_map = groups_map.get();
+        let form_vals = form_values.get();
+
+        let mut groups_data = Vec::new();
+        let mut used_fields = std::collections::HashSet::new();
+        let mut total_errors = 0;
+
+        // Process defined groups
+        for group in groups_map.values() {
+            let mut group_fields = Vec::new();
+
+            for field_id in &group.field_ids {
+                if let Some(field) = fields_map.get(field_id) {
+                    if !field.is_hidden {
+                        let field_value = form_vals
+                            .get(field_id)
+                            .map(|v| v.value.clone())
+                            .unwrap_or_else(|| match field.field_type {
+                                FieldType::Number => FieldValue::Number(0.0),
+                                FieldType::Checkbox => FieldValue::Checkbox(field.default_checked),
+                                _ => FieldValue::Text(field.default_value.clone()),
+                            });
+
+                        let (validation_errors, is_focused, is_dirty) =
+                            render_context.with(|context| {
+                                let validation_errors = context
+                                    .validation_errors
+                                    .get(field_id)
+                                    .cloned()
+                                    .unwrap_or_default();
+                                let is_focused = context.focused_field.as_ref() == Some(field_id);
+                                let is_dirty = context.dirty_fields.contains(field_id);
+
+                                (validation_errors, is_focused, is_dirty)
+                            });
+                        total_errors += validation_errors.len();
+
+                        group_fields.push(FieldRenderData {
+                            field: field.clone(),
+                            value: field_value,
+                            validation_errors,
+                            is_focused,
+                            is_dirty,
+                        });
+
+                        used_fields.insert(field_id.clone());
                     }
-                })
-                on_change=on_change
-            />
-        }
-        .into_any(),
-        FieldType::Number => view! {
-            <NumberInputField
-                field_id=field_id.clone()
-                value=Memo::new(move |_| {
-                    match value_memo.get() {
-                        FieldValue::Number(n) => n.to_string(),
-                        _ => String::new(),
-                    }
-                })
-                on_change=on_change
-            />
-        }
-        .into_any(),
-        FieldType::Dropdown => {
-            let options = field
-                .options
-                .unwrap_or_default()
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .collect::<Vec<String>>();
-            view! {
-                <DropdownField
-                    field_id=field_id.clone()
-                    options=options
-                    value=Memo::new(move |_| {
-                        match value_memo.get() {
-                            FieldValue::Text(v) => v,
-                            _ => String::new(),
-                        }
-                    })
-                    on_change=on_change
-                />
-            }
-            .into_any()
-        }
-        FieldType::Date => view! {
-            <DateInputField
-                field_id=field_id.clone()
-                value=Memo::new(move |_| {
-                    match value_memo.get() {
-                        FieldValue::Text(v) => v,
-                        _ => String::new(),
-                    }
-                })
-                on_change=on_change
-            />
-        }
-        .into_any(),
-        FieldType::Checkbox => view! {
-            <CheckboxField
-                field_id=field_id.clone()
-                checked=Memo::new(move |_| {
-                    match value_memo.get() {
-                        FieldValue::Checkbox(b) => b,
-                        _ => field.default_checked,
-                    }
-                })
-                on_change=on_change
-            />
-        }
-        .into_any(),
-        FieldType::Textarea => view! {
-            <TextareaField
-                field_id=field_id.clone()
-                value=Memo::new(move |_| {
-                    match value_memo.get() {
-                        FieldValue::Text(v) => v,
-                        _ => String::new(),
-                    }
-                })
-                required=required
-                on_change=on_change
-            />
-        }
-        .into_any(),
-    };
-
-    view! {
-        <>
-            <label class="form-label text-sm font-medium text-gray-700 mb-1" for=field_id.clone()>
-                {field.name.clone()}
-                {if required && config.show_required_indicator {
-                    Some(view! { <span class=config.required_indicator_class>*</span> })
-                } else {
-                    None
-                }}
-            </label>
-            {input_view}
-        </>
-    }
-}
-
-// Helper functions remain the same
-fn get_event_value(ev: web_sys::Event, field_type: &FieldType) -> FieldValue {
-    match field_type {
-        FieldType::Text | FieldType::Email | FieldType::Phone | FieldType::Date => {
-            let input = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok());
-            FieldValue::Text(input.map(|i| i.value()).unwrap_or_default())
-        }
-        FieldType::Textarea => {
-            let textarea = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::HtmlTextAreaElement>().ok());
-            FieldValue::Textarea(textarea.map(|t| t.value()).unwrap_or_default())
-        }
-        FieldType::Number => {
-            let input = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok());
-            let parsed = input
-                .map(|i| i.value().parse::<f64>().unwrap_or(0.0))
-                .unwrap_or(0.0);
-            FieldValue::Number(parsed)
-        }
-        FieldType::Dropdown => {
-            let select = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::HtmlSelectElement>().ok());
-            FieldValue::Dropdown(select.map(|s| s.value()).unwrap_or_default())
-        }
-        FieldType::Checkbox => {
-            let input = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok());
-            FieldValue::Checkbox(input.map(|i| i.checked()).unwrap_or(false))
-        }
-    }
-}
-
-// Input field components remain the same
-#[component]
-pub fn TextInputField(
-    #[prop()] field_id: String,
-    #[prop()] input_type: String,
-    #[prop()] value: Memo<String>,
-    #[prop()] on_change: Callback<web_sys::Event>,
-) -> impl IntoView {
-    view! {
-        <input
-            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            id=field_id.clone()
-            name=field_id.clone()
-            type=input_type.clone()
-            prop:value=move || value.get()
-            on:input=move |ev| on_change.run(ev)
-        />
-    }
-}
-
-#[component]
-pub fn NumberInputField(
-    #[prop()] field_id: String,
-    #[prop()] value: Memo<String>,
-    #[prop()] on_change: Callback<web_sys::Event>,
-) -> impl IntoView {
-    view! {
-        <input
-            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            id=field_id.clone()
-            name=field_id.clone()
-            type="number"
-            prop:value=move || value.get()
-            on:input=move |ev| on_change.run(ev)
-        />
-    }
-}
-
-#[component]
-pub fn DropdownField(
-    #[prop()] field_id: String,
-    #[prop()] options: Vec<String>,
-    #[prop()] value: Memo<String>,
-    #[prop()] on_change: Callback<web_sys::Event>,
-) -> impl IntoView {
-    view! {
-        <select
-            class="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            id=field_id.clone()
-            name=field_id.clone()
-            prop:value=move || value.get()
-            on:change=move |ev| on_change.run(ev)
-        >
-            <option value="" disabled selected>
-                "Select an option"
-            </option>
-            <For
-                each=move || options.clone()
-                key=|opt| opt.clone()
-                children=move |option| {
-                    view! { <option value=option.clone()>{option.clone()}</option> }
                 }
-            />
-        </select>
-    }
-}
+            }
 
-#[component]
-pub fn DateInputField(
-    #[prop()] field_id: String,
-    #[prop()] value: Memo<String>,
-    #[prop()] on_change: Callback<web_sys::Event>,
-) -> impl IntoView {
-    view! {
-        <input
-            type="date"
-            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            id=field_id.clone()
-            name=field_id.clone()
-            prop:value=move || value.get()
-            on:input=move |ev| on_change.run(ev)
-        />
-    }
-}
+            if !group_fields.is_empty() {
+                // Sort by order_in_group if specified
+                group_fields.sort_by_key(|f| f.field.order_in_group.unwrap_or(0));
+                groups_data.push(GroupRenderData {
+                    group: group.clone(),
+                    fields: group_fields,
+                    is_expanded: render_context
+                        .with(|context| context.expanded_groups.contains(&group.id)),
+                });
+            }
+        }
 
-#[component]
-pub fn CheckboxField(
-    #[prop()] field_id: String,
-    #[prop()] checked: Memo<bool>,
-    #[prop()] on_change: Callback<web_sys::Event>,
-) -> impl IntoView {
-    view! {
-        <input
-            type="checkbox"
-            class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            id=field_id.clone()
-            name=field_id.clone()
-            prop:checked=move || checked.get()
-            on:change=move |ev| on_change.run(ev)
-        />
-    }
-}
+        // Process ungrouped fields
+        let ungrouped_fields: Vec<FieldRenderData> = fields_map
+            .values()
+            .filter(|field| !used_fields.contains(&field.id) && !field.is_hidden)
+            .map(|field| {
+                let field_value = form_vals
+                    .get(&field.id)
+                    .map(|v| v.value.clone())
+                    .unwrap_or_else(|| match field.field_type {
+                        FieldType::Number => FieldValue::Number(0.0),
+                        FieldType::Checkbox => FieldValue::Checkbox(field.default_checked),
+                        _ => FieldValue::Text(field.default_value.clone()),
+                    });
 
-#[component]
-pub fn TextareaField(
-    #[prop()] field_id: String,
-    #[prop()] value: Memo<String>,
-    #[prop()] required: bool,
-    #[prop()] on_change: Callback<web_sys::Event>,
-) -> impl IntoView {
+                let (validation_errors, is_focused, is_dirty) = render_context.with(|context| {
+                    let validation_errors = context
+                        .validation_errors
+                        .get(&field.id)
+                        .cloned()
+                        .unwrap_or_default();
+                    let is_focused = context.focused_field.as_ref() == Some(&field.id);
+                    let is_dirty = context.dirty_fields.contains(&field.id);
+
+                    (validation_errors, is_focused, is_dirty)
+                });
+
+                total_errors += validation_errors.len();
+
+                FieldRenderData {
+                    field: field.clone(),
+                    value: field_value,
+                    validation_errors,
+                    is_focused,
+                    is_dirty,
+                }
+            })
+            .collect();
+
+        let total_fields =
+            groups_data.iter().map(|g| g.fields.len()).sum::<usize>() + ungrouped_fields.len();
+
+        ContainerRenderData {
+            groups: groups_data,
+            ungrouped_fields,
+            total_fields,
+            total_errors,
+            is_valid: total_errors == 0,
+        }
+    };
+
+    // Field callbacks
+    let field_callbacks = FieldCallbacks {
+        on_value_change: Callback::new({
+            move |(field_id, new_value): (String, FieldValue)| {
+                // Update form values
+                form_values.update(|values| {
+                    if let Some(field_item) = values.get(&field_id) {
+                        let mut updated_item = field_item.clone();
+                        updated_item.value = new_value;
+                        values.insert(field_id.clone(), updated_item);
+                    } else {
+                        // Find field name from fields
+                        let field_name = fields
+                            .get()
+                            .iter()
+                            .find(|f| f.id == field_id)
+                            .map(|f| f.name.clone())
+                            .unwrap_or_else(|| field_id.clone());
+
+                        values.insert(
+                            field_id.clone(),
+                            FieldItemValue {
+                                id: field_id.clone(),
+                                label: field_name,
+                                value: new_value,
+                            },
+                        );
+                    }
+                });
+
+                // Mark field as dirty
+                render_context.update(|ctx| {
+                    ctx.dirty_fields.insert(field_id);
+                });
+            }
+        }),
+        on_focus: Some(Callback::new({
+            move |field_id: String| {
+                render_context.update(|ctx| {
+                    ctx.focused_field = Some(field_id);
+                });
+            }
+        })),
+        on_blur: Some(Callback::new({
+            move |_field_id: String| {
+                render_context.update(|ctx| {
+                    ctx.focused_field = None;
+                });
+            }
+        })),
+        on_validation_trigger: Some(Callback::new({
+            let config = config.clone();
+            move |_field_id: String| {
+                if config.real_time_validation {
+                    // Trigger validation - implementation depends on validation system
+                }
+            }
+        })),
+    };
+
+    // Group callbacks
+    let group_callbacks = GroupCallbacks {
+        on_expand_toggle: Some(Callback::new({
+            move |group_id: String| {
+                render_context.update(|ctx| {
+                    if ctx.expanded_groups.contains(&group_id) {
+                        ctx.expanded_groups.remove(&group_id);
+                    } else {
+                        ctx.expanded_groups.insert(group_id);
+                    }
+                });
+            }
+        })),
+        on_add_repetition: None,    // Implement based on your needs
+        on_remove_repetition: None, // Implement based on your needs
+    };
+
+    // Container callbacks
+    let container_callbacks = ContainerCallbacks {
+        on_form_submit: None, // Implement based on your needs
+        on_form_reset: Some(Callback::new(move |_| {
+            form_values.update(|values| values.clear());
+            render_context.update(|ctx| {
+                ctx.validation_errors.clear();
+                ctx.dirty_fields.clear();
+                ctx.focused_field = None;
+            });
+        })),
+        on_form_validate: None, // Implement based on your needs
+    };
+
+    // Create the reactive view that renders fields
     view! {
-        <textarea
-            class="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            id=field_id.clone()
-            name=field_id.clone()
-            rows="3"
-            required=required
-            prop:value=move || value.get()
-            on:input=move |ev| on_change.run(ev)
-        ></textarea>
+        <div>
+            {move || {
+                let container_data = get_container_data();
+                let field_callbacks = field_callbacks.clone();
+                let mut all_field_views = Vec::new();
+                for group_data in &container_data.groups {
+                    let group_field_views: Vec<AnyView> = group_data
+                        .fields
+                        .iter()
+                        .map(|field_data| {
+                            field_renderer
+                                .with(|field_renderer_fn| {
+                                    field_renderer_fn(field_data.clone(), field_callbacks.clone())
+                                })
+                        })
+                        .collect();
+                    let group_content = // Render grouped fields
+
+                    view! { {group_field_views.into_iter().collect::<Vec<_>>()} }
+                        .into_any();
+                    let group_view = if let Some(group_renderer) = &group_renderer {
+                        group_renderer
+                            .with(|group_renderer_fn: _| {
+                                group_renderer_fn(
+                                    group_data.clone(),
+                                    group_callbacks.clone(),
+                                    group_content,
+                                )
+                            })
+                    } else {
+                        group_content
+                    };
+                    all_field_views.push(group_view);
+                }
+                for field_data in &container_data.ungrouped_fields {
+                    all_field_views
+                        .push(
+                            field_renderer
+                                .with(|field_renderer_fn| {
+                                    field_renderer_fn(field_data.clone(), field_callbacks.clone())
+                                }),
+                        );
+                }
+                let fields_view = // Apply group renderer if provided
+
+                // Render ungrouped fields
+
+                view! { {all_field_views.into_iter().collect::<Vec<_>>()} }
+                    .into_any();
+                if let Some(container_renderer) = &container_renderer {
+                    container_renderer
+                        .with(|f| { f(container_data, container_callbacks.clone(), fields_view) })
+                } else {
+                    fields_view
+                }
+            }}
+        </div>
     }
 }

@@ -1,0 +1,518 @@
+use crate::components::invoice::{FieldCallbacks, FieldRenderData, FieldRenderer};
+use crate::components::invoice::{FieldType, FieldValue};
+use leptos::prelude::*;
+
+pub fn create_field_renderer() -> FieldRenderer {
+    Box::new(
+        move |field_data: FieldRenderData, callbacks: FieldCallbacks| {
+            let field = field_data.field.clone();
+            let value = field_data.value.clone();
+            let errors = field_data.validation_errors.clone();
+
+            // Simple input classes matching the form style
+            let input_classes = if !errors.is_empty() {
+                "form-input w-full border-red-300 focus:border-red-500 text-red-900"
+            } else {
+                "form-input w-full"
+            };
+
+            let field_id = field.id.clone();
+            let field_name = field.name.clone();
+            let required = field.required;
+            let readonly = field.is_readonly;
+            let placeholder = field.placeholder.clone().unwrap_or_default();
+
+            view! {
+                <div class="flex flex-col">
+                    // Simple label
+                    <label class="form-label" for=field_id.clone()>
+                        {field_name.clone()}
+                        {if required {
+                            Some(view! { <span class="text-red-500 ml-1">*</span> })
+                        } else {
+                            None
+                        }}
+                        {if readonly {
+                            Some(
+                                view! {
+                                    <span class="ml-2 text-xs text-gray-500">(read-only)</span>
+                                },
+                            )
+                        } else {
+                            None
+                        }}
+                    </label>
+
+                    // Field input based on type
+                    {match field.field_type {
+                        FieldType::Text | FieldType::Email | FieldType::Phone => {
+                            render_text_input(
+                                field.clone(),
+                                value,
+                                input_classes,
+                                field_id,
+                                placeholder,
+                                required,
+                                readonly,
+                                callbacks,
+                            )
+                        }
+                        FieldType::Number => {
+                            render_number_input(
+                                field.clone(),
+                                value,
+                                input_classes,
+                                field_id,
+                                placeholder,
+                                required,
+                                readonly,
+                                callbacks,
+                            )
+                        }
+                        FieldType::Textarea => {
+                            render_textarea_input(
+                                field.clone(),
+                                value,
+                                input_classes,
+                                field_id,
+                                placeholder,
+                                required,
+                                readonly,
+                                callbacks,
+                            )
+                        }
+                        FieldType::Dropdown => {
+                            render_dropdown_input(
+                                field.clone(),
+                                value,
+                                input_classes,
+                                field_id,
+                                placeholder,
+                                required,
+                                readonly,
+                                callbacks,
+                            )
+                        }
+                        FieldType::Date => {
+                            render_date_input(
+                                field.clone(),
+                                value,
+                                input_classes,
+                                field_id,
+                                required,
+                                readonly,
+                                callbacks,
+                            )
+                        }
+                        FieldType::Checkbox => {
+                            render_checkbox_input(
+                                field.clone(),
+                                value,
+                                field_id,
+                                field_name,
+                                required,
+                                readonly,
+                                callbacks,
+                            )
+                        }
+                        FieldType::AutoGenerated => render_auto_generated_display(value),
+                    }}
+
+                    // Simple error display
+                    {if !errors.is_empty() {
+                        Some(
+                            view! {
+                                <div class="mt-1">
+                                    <For
+                                        each={
+                                            let errors = errors.clone();
+                                            move || errors.clone()
+                                        }
+                                        key=|error| error.clone()
+                                        children=move |error| {
+                                            view! { <p class="text-sm text-red-600">{error}</p> }
+                                        }
+                                    />
+                                </div>
+                            },
+                        )
+                    } else {
+                        None
+                    }}
+                </div>
+            }
+            .into_any()
+        },
+    )
+}
+
+fn render_text_input(
+    field: crate::components::invoice::FieldItem,
+    value: FieldValue,
+    input_classes: &str,
+    field_id: String,
+    placeholder: String,
+    required: bool,
+    readonly: bool,
+    callbacks: FieldCallbacks,
+) -> AnyView {
+    let input_type = field.field_type.to_input_type();
+    let current_value = match value {
+        FieldValue::Text(v) | FieldValue::Email(v) | FieldValue::Phone(v) => v,
+        _ => String::new(),
+    };
+
+    view! {
+        <input
+            type=input_type
+            id=field_id.clone()
+            name=field_id.clone()
+            placeholder=placeholder
+            class=input_classes
+            prop:value=current_value
+            required=required
+            readonly=readonly
+            on:input={
+                let field_id = field_id.clone();
+                let field_type = field.field_type.clone();
+                move |ev| {
+                    let new_value = event_target_value(&ev);
+                    let field_value = match field_type {
+                        FieldType::Email => FieldValue::Email(new_value),
+                        FieldType::Phone => FieldValue::Phone(new_value),
+                        _ => FieldValue::Text(new_value),
+                    };
+                    callbacks.on_value_change.run((field_id.clone(), field_value));
+                }
+            }
+            on:focus={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_focus) = &callbacks.on_focus {
+                        on_focus.run(field_id.clone());
+                    }
+                }
+            }
+            on:blur={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_blur) = &callbacks.on_blur {
+                        on_blur.run(field_id.clone());
+                    }
+                }
+            }
+        />
+    }
+    .into_any()
+}
+
+fn render_number_input(
+    field: crate::components::invoice::FieldItem,
+    value: FieldValue,
+    input_classes: &str,
+    field_id: String,
+    placeholder: String,
+    required: bool,
+    readonly: bool,
+    callbacks: FieldCallbacks,
+) -> AnyView {
+    let current_value = match value {
+        FieldValue::Number(n) => n.to_string(),
+        _ => String::new(),
+    };
+
+    view! {
+        <input
+            type="number"
+            id=field_id.clone()
+            name=field_id.clone()
+            placeholder=placeholder
+            class=input_classes
+            prop:value=current_value
+            step="any"
+            required=required
+            readonly=readonly
+            on:input={
+                let field_id = field_id.clone();
+                move |ev| {
+                    let new_value = event_target_value(&ev);
+                    let number_value = new_value.parse::<f64>().unwrap_or(0.0);
+                    callbacks
+                        .on_value_change
+                        .run((field_id.clone(), FieldValue::Number(number_value)));
+                }
+            }
+            on:focus={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_focus) = &callbacks.on_focus {
+                        on_focus.run(field_id.clone());
+                    }
+                }
+            }
+            on:blur={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_blur) = &callbacks.on_blur {
+                        on_blur.run(field_id.clone());
+                    }
+                }
+            }
+        />
+    }
+    .into_any()
+}
+
+fn render_textarea_input(
+    field: crate::components::invoice::FieldItem,
+    value: FieldValue,
+    input_classes: &str,
+    field_id: String,
+    placeholder: String,
+    required: bool,
+    readonly: bool,
+    callbacks: FieldCallbacks,
+) -> AnyView {
+    let current_value = match value {
+        FieldValue::Textarea(v) | FieldValue::Text(v) => v,
+        _ => String::new(),
+    };
+
+    view! {
+        <textarea
+            id=field_id.clone()
+            name=field_id.clone()
+            placeholder=placeholder
+            class=format!("{} min-h-[80px]", input_classes)
+            rows="3"
+            required=required
+            readonly=readonly
+            prop:value=current_value
+            on:input={
+                let field_id = field_id.clone();
+                move |ev| {
+                    let new_value = event_target_value(&ev);
+                    callbacks
+                        .on_value_change
+                        .run((field_id.clone(), FieldValue::Textarea(new_value)));
+                }
+            }
+            on:focus={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_focus) = &callbacks.on_focus {
+                        on_focus.run(field_id.clone());
+                    }
+                }
+            }
+            on:blur={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_blur) = &callbacks.on_blur {
+                        on_blur.run(field_id.clone());
+                    }
+                }
+            }
+        ></textarea>
+    }
+    .into_any()
+}
+
+fn render_dropdown_input(
+    field: crate::components::invoice::FieldItem,
+    value: FieldValue,
+    input_classes: &str,
+    field_id: String,
+    placeholder: String,
+    required: bool,
+    readonly: bool,
+    callbacks: FieldCallbacks,
+) -> AnyView {
+    let current_value = match value {
+        FieldValue::Dropdown(v) | FieldValue::Text(v) => v,
+        _ => String::new(),
+    };
+
+    view! {
+        <select
+            id=field_id.clone()
+            name=field_id.clone()
+            class=input_classes
+            required=required
+            disabled=readonly
+            prop:value=current_value
+            on:change={
+                let field_id = field_id.clone();
+                move |ev| {
+                    let new_value = event_target_value(&ev);
+                    callbacks
+                        .on_value_change
+                        .run((field_id.clone(), FieldValue::Dropdown(new_value)));
+                }
+            }
+            on:focus={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_focus) = &callbacks.on_focus {
+                        on_focus.run(field_id.clone());
+                    }
+                }
+            }
+            on:blur={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_blur) = &callbacks.on_blur {
+                        on_blur.run(field_id.clone());
+                    }
+                }
+            }
+        >
+            <option value="" disabled=true selected=current_value.is_empty()>
+                {if placeholder.is_empty() { "Select an option" } else { &placeholder }}
+            </option>
+            <For
+                each=move || field.options.clone()
+                key=|opt| opt.value.clone()
+                children={
+                    let current_value = current_value.clone();
+                    move |option| {
+                        let is_selected = option.value == current_value || option.is_default;
+                        view! {
+                            <option value=option.value.clone() selected=is_selected>
+                                {option.label.clone()}
+                            </option>
+                        }
+                    }
+                }
+            />
+        </select>
+    }
+    .into_any()
+}
+
+fn render_date_input(
+    field: crate::components::invoice::FieldItem,
+    value: FieldValue,
+    input_classes: &str,
+    field_id: String,
+    required: bool,
+    readonly: bool,
+    callbacks: FieldCallbacks,
+) -> AnyView {
+    let current_value = match value {
+        FieldValue::Date(v) | FieldValue::Text(v) => v,
+        _ => String::new(),
+    };
+
+    view! {
+        <input
+            type="date"
+            id=field_id.clone()
+            name=field_id.clone()
+            class=input_classes
+            prop:value=current_value
+            required=required
+            readonly=readonly
+            on:input={
+                let field_id = field_id.clone();
+                move |ev| {
+                    let new_value = event_target_value(&ev);
+                    callbacks.on_value_change.run((field_id.clone(), FieldValue::Date(new_value)));
+                }
+            }
+            on:focus={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_focus) = &callbacks.on_focus {
+                        on_focus.run(field_id.clone());
+                    }
+                }
+            }
+            on:blur={
+                let field_id = field_id.clone();
+                move |_| {
+                    if let Some(on_blur) = &callbacks.on_blur {
+                        on_blur.run(field_id.clone());
+                    }
+                }
+            }
+        />
+    }
+    .into_any()
+}
+
+fn render_checkbox_input(
+    field: crate::components::invoice::FieldItem,
+    value: FieldValue,
+    field_id: String,
+    field_name: String,
+    required: bool,
+    readonly: bool,
+    callbacks: FieldCallbacks,
+) -> AnyView {
+    let is_checked = match value {
+        FieldValue::Checkbox(b) => b,
+        _ => field.default_checked,
+    };
+
+    view! {
+        <div class="flex items-center space-x-2">
+            <input
+                type="checkbox"
+                id=field_id.clone()
+                name=field_id.clone()
+                class="form-checkbox"
+                prop:checked=is_checked
+                required=required
+                disabled=readonly
+                on:change={
+                    let field_id = field_id.clone();
+                    move |ev| {
+                        let is_checked = event_target_checked(&ev);
+                        callbacks
+                            .on_value_change
+                            .run((field_id.clone(), FieldValue::Checkbox(is_checked)));
+                    }
+                }
+                on:focus={
+                    let field_id = field_id.clone();
+                    move |_| {
+                        if let Some(on_focus) = &callbacks.on_focus {
+                            on_focus.run(field_id.clone());
+                        }
+                    }
+                }
+                on:blur={
+                    let field_id = field_id.clone();
+                    move |_| {
+                        if let Some(on_blur) = &callbacks.on_blur {
+                            on_blur.run(field_id.clone());
+                        }
+                    }
+                }
+            />
+            <label for=field_id class="text-sm text-gray-700">
+                {field_name}
+            </label>
+        </div>
+    }
+    .into_any()
+}
+
+fn render_auto_generated_display(value: FieldValue) -> AnyView {
+    let current_value = match value {
+        FieldValue::AutoGenerated(v) | FieldValue::Text(v) => v,
+        _ => "Auto-generated".to_string(),
+    };
+
+    view! {
+        <div class="bg-gray-100 rounded-lg p-2 text-gray-700 text-sm font-mono">
+            {if current_value.is_empty() {
+                "Auto-generated value will appear here".to_string()
+            } else {
+                current_value
+            }}
+        </div>
+    }
+    .into_any()
+}
